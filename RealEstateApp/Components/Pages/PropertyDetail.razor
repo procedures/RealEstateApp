@@ -1,0 +1,367 @@
+﻿@page "/property/{Id:int}"
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@using RealEstateApp.Services
+@using RealEstateApp.Components.Shared
+@inject IPropertyRepository PropertyRepo
+@inject IPropertyImageRepository ImageRepo
+@inject IViewingRepository ViewingRepo
+@inject ITelegramNotifier Telegram
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+<PageTitle>Хөрөнгийн дэлгэрэнгүй</PageTitle>
+
+<div class="pd">
+    <SiteHeader />
+
+    <!-- Breadcrumb -->
+    <div class="pd-crumbbar">
+        <div class="pd-container">
+            <a href="/">Нүүр</a> <span>/</span>
+            <a href="/properties">Зарууд</a> <span>/</span>
+            <b>@(_p?.ComplexName ?? "Хөрөнгийн дэлгэрэнгүй")</b>
+        </div>
+    </div>
+
+    <div class="pd-container">
+        @if (_loading)
+        {
+            <div class="pd-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_p is null)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-8">
+                Ийм хөрөнгө олдсонгүй. <a href="/properties">Зарууд руу буцах</a>
+            </MudAlert>
+        }
+        else
+        {
+            <div class="pd-grid">
+                <!-- ============ ЗҮҮН: галерей + тайлбар ============ -->
+                <div class="pd-main">
+                    <div class="gallery">
+                        <div class="g-main" style="background-image:url('@MainImage')">
+                            @if (_images.Count > 1)
+                            {
+                                <button class="g-arrow left" @onclick="Prev">
+                                    <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
+                                </button>
+                                <button class="g-arrow right" @onclick="Next">
+                                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
+                                </button>
+                            }
+
+                            @if (_images.Count > 0)
+                            {
+                                <span class="g-counter">@(_sel + 1) / @_images.Count</span>
+                            }
+                            else
+                            {
+                                <span class="g-noimg">
+                                    <MudIcon Icon="@Icons.Material.Filled.ImageNotSupported" Size="Size.Small" /> Зураг оруулаагүй
+                                </span>
+                            }
+                        </div>
+
+                        @if (_images.Count > 1)
+                        {
+                            <div class="g-thumbs">
+                                @for (int i = 0; i < _images.Count; i++)
+                                {
+                                    var idx = i;
+                                    <div class="g-thumb @(idx == _sel ? "active" : "")"
+                                         style="background-image:url('@_images[idx].ImagePath')"
+                                         @onclick="() => _sel = idx"></div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="about">
+                        <h2 class="about-h">Энэ хөрөнгийн тухай</h2>
+                        <p class="about-p">
+                            @(_p.ComplexName ?? _p.PropertyTypeName) — @_p.DistrictName.
+                            @(!string.IsNullOrWhiteSpace(_p.LocationDescription) ? _p.LocationDescription + "." : "")
+                            Нийт @_p.AreaSize.ToString("0.#") м² талбайтай,
+                            @(_p.RoomCount?.ToString() ?? "-") өрөө,
+                            @(_p.BuildingFloors?.ToString() ?? "-") давхар байрны
+                            @(_p.FloorNumber?.ToString() ?? "-")-р давхарт байрлана.
+                        </p>
+                        <p class="about-p"><b>Хаяг:</b> @_p.Address</p>
+                    </div>
+
+                    <!-- Зөвхөн нэвтэрсэн үед -->
+                    <AuthorizeView>
+                        <Authorized Context="auth">
+                            <div class="inside">
+                                <div class="inside-head">
+                                    <h2 class="inside-h">
+                                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" /> Дотоод мэдээлэл
+                                    </h2>
+                                    @if (auth.User.GetAgentId() == _p.AgentId || auth.User.IsAdmin())
+                                    {
+                                        <a href="/agent/property/@_p.PropertyId/edit" class="inside-edit">
+                                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" /> Засах
+                                        </a>
+                                    }
+                                </div>
+
+                                <div class="inside-grid">
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Төлөв</span>
+                                        <span class="ig-badge" style="background:@StatusColor(_p.Status)">@StatusLabel(_p.Status)</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Зургийн тоо</span>
+                                        <span class="ig-val">@_images.Count</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Гэрээний дугаар</span>
+                                        <span class="ig-val">@(_p.ContractNumber ?? "-")</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Гэрээ хийсэн</span>
+                                        <span class="ig-val">@(_p.ContractDate?.ToString("yyyy-MM-dd") ?? "-")</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Бүртгэсэн</span>
+                                        <span class="ig-val">@(_p.CreatedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Сүүлд зассан</span>
+                                        <span class="ig-val">@(_p.UpdatedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Нийтэлсэн</span>
+                                        <span class="ig-val">@(_p.PublishedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Эзэн өөрөө худалдаж буй</span>
+                                        <span class="ig-val">@(_p.OwnerSelfSelling ? "Тийм" : "Үгүй")</span>
+                                    </div>
+                                    @if (_p.ContractClosedDate.HasValue)
+                                    {
+                                        <div class="ig-item">
+                                            <span class="ig-lbl">Гэрээ хаагдсан</span>
+                                            <span class="ig-val">@_p.ContractClosedDate.Value.ToString("yyyy-MM-dd")</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                </div>
+
+                <!-- ============ БАРУУН: sticky sidebar ============ -->
+                <aside class="pd-aside">
+                    <div class="side-card">
+                        <div class="sc-price">@Money(_p.Price)</div>
+                        <span class="sc-badge">@_p.TransactionTypeName.ToUpper()</span>
+
+                        <div class="sc-addr-title">@(_p.ComplexName ?? _p.PropertyTypeName)</div>
+                        <div class="sc-addr">@_p.Address</div>
+
+                        <div class="specs">
+                            <Fact Icon="@Icons.Material.Filled.KingBed" Label="Өрөө" Value="@((_p.RoomCount?.ToString() ?? "-"))" />
+                            <Fact Icon="@Icons.Material.Filled.SquareFoot" Label="Талбай (м²)" Value="@($"{_p.AreaSize:0.#}")" />
+                            <Fact Icon="@Icons.Material.Filled.Stairs" Label="Давхар" Value="@($"{_p.FloorNumber?.ToString() ?? "-"}/{_p.BuildingFloors?.ToString() ?? "-"}")" />
+                            <Fact Icon="@Icons.Material.Filled.CalendarMonth" Label="Ашиглалт" Value="@((_p.CommissionedYear?.ToString() ?? "-"))" />
+                            <Fact Icon="@Icons.Material.Filled.Payments" Label="1м² үнэ" Value="@(_p.PricePerSqm.HasValue ? Money(_p.PricePerSqm.Value) : "-")" />
+                            <Fact Icon="@Icons.Material.Filled.Garage" Label="Гараж" Value="@(_p.HasGarage ? "Тийм" : "Үгүй")" />
+                        </div>
+
+                        <div class="agent-box">
+                            <div class="agent-ava">
+                                @if (!string.IsNullOrWhiteSpace(_p.AgentPhotoUrl))
+                                {
+                                    <img src="@_p.AgentPhotoUrl" alt="" />
+                                }
+                                else
+                                {
+                                    <span class="agent-initial">@Initial(_p.AgentName)</span>
+                                }
+                            </div>
+                            <div>
+                                <a href="/agents/@_p.AgentId" class="agent-name">@_p.AgentName</a>
+                                <div class="agent-role">Хариуцсан агент</div>
+                                @if (!string.IsNullOrEmpty(_p.AgentPhone))
+                                {
+                                    <a href="tel:@_p.AgentPhone" class="agent-line">
+                                        <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" /> @_p.AgentPhone
+                                    </a>
+                                }
+                                @if (!string.IsNullOrEmpty(_p.ContactPhone))
+                                {
+                                    <a href="tel:@_p.ContactPhone" class="agent-line">
+                                        <MudIcon Icon="@Icons.Material.Filled.ContactPhone" Size="Size.Small" /> @_p.ContactPhone
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Үзлэг захиалах -->
+                    <div class="side-card">
+                        <h3 class="tour-h">Үзлэг захиалах</h3>
+
+                        @if (_tourSent)
+                        {
+                            <div class="tour-ok">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" />
+                                <div>
+                                    <div class="tour-okh">Хүсэлт илгээгдлээ</div>
+                                    <div class="tour-oks">Агент тантай удахгүй холбогдоно.</div>
+                                </div>
+                            </div>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" FullWidth="true"
+                                       OnClick="() => _tourSent = false" Class="mt-2">
+                                Дахин захиалах
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudForm @ref="_tourForm" Model="_tour">
+                                <MudTextField T="string" @bind-Value="_tour.FullName" Placeholder="Таны нэр *"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                                              Required="true" RequiredError="Нэрээ оруулна уу" />
+                                <MudTextField T="string" @bind-Value="_tour.Phone" Placeholder="Утасны дугаар *"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                                              Required="true" RequiredError="Утасны дугаараа оруулна уу" />
+                                <MudDatePicker @bind-Date="_tour.PreferredDate" Placeholder="Үзэх огноо"
+                                               Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
+                                               MinDate="DateTime.Today" />
+                                <MudTextField T="string" @bind-Value="_tour.Note" Placeholder="Нэмэлт тайлбар"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" Class="mb-2" />
+
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                                           StartIcon="@Icons.Material.Filled.EventAvailable"
+                                           OnClick="SubmitTourAsync" Disabled="_tourBusy">
+                                    @(_tourBusy ? "Илгээж байна…" : "Хүсэлт илгээх")
+                                </MudButton>
+                            </MudForm>
+                        }
+                    </div>
+                </aside>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private PropertyDetailDto? _p;
+    private List<PropertyImage> _images = new();
+    private int _sel;
+
+    // Үзлэг захиалах
+    private MudForm _tourForm = default!;
+    private ViewingInput _tour = new();
+    private bool _tourBusy, _tourSent;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _sel = 0;
+        _tourSent = false;
+        _tour = new ViewingInput();
+
+        _p = await PropertyRepo.GetByIdAsync(Id);
+        _images = _p is null ? new() : await ImageRepo.ListAsync(_p.PropertyId);
+
+        _loading = false;
+    }
+
+    // Зураг байвал сонгосныг, байхгүй бол placeholder
+    private string MainImage =>
+        _images.Count > 0
+            ? _images[Math.Clamp(_sel, 0, _images.Count - 1)].ImagePath
+            : $"https://picsum.photos/seed/prop{(_p?.PropertyId ?? 0)}/1000/640";
+
+    private void Prev()
+    {
+        if (_images.Count == 0) return;
+        _sel = (_sel - 1 + _images.Count) % _images.Count;
+    }
+
+    private void Next()
+    {
+        if (_images.Count == 0) return;
+        _sel = (_sel + 1) % _images.Count;
+    }
+
+    private async Task SubmitTourAsync()
+    {
+        await _tourForm.ValidateAsync();
+        if (!_tourForm.IsValid)
+        {
+            Snackbar.Add("Нэр болон утасны дугаараа оруулна уу.", Severity.Warning);
+            return;
+        }
+
+        _tourBusy = true;
+        try
+        {
+            var r = await ViewingRepo.RequestAsync(Id, _tour);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Warning);
+
+            if (r.Ok)
+            {
+                _tourSent = true;
+
+                // Telegram мэдэгдэл (фон дээр, хариу хүлээхгүй)
+                var propName = _p?.ComplexName ?? _p?.Address ?? $"№{Id}";
+                var msg =
+                    $"🏠 <b>Шинэ үзлэгийн хүсэлт</b>\n\n" +
+                    $"<b>Хөрөнгө:</b> {Esc(propName)}\n" +
+                    $"<b>Нэр:</b> {Esc(_tour.FullName)}\n" +
+                    $"<b>Утас:</b> {Esc(_tour.Phone)}\n" +
+                    (_tour.PreferredDate.HasValue ? $"<b>Үзэх огноо:</b> {_tour.PreferredDate:yyyy-MM-dd}\n" : "") +
+                    (!string.IsNullOrWhiteSpace(_tour.Note) ? $"<b>Тайлбар:</b> {Esc(_tour.Note)}\n" : "") +
+                    (!string.IsNullOrWhiteSpace(_p?.AgentName) ? $"<b>Хариуцах агент:</b> {Esc(_p!.AgentName)}" : "");
+
+                _ = Telegram.SendAsync(msg);   // await хийхгүй — форм шууд хариу өгнө
+
+                _tour = new ViewingInput();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+        }
+        finally { _tourBusy = false; }
+    }
+
+    private string Money(decimal v) =>
+        v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
+
+    private static string Esc(string? s) =>
+        string.IsNullOrEmpty(s) ? "" :
+        s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    private static string StatusLabel(int s) => s switch
+    {
+        1 => "Ноорог",
+        2 => "Хүлээгдэж буй",
+        3 => "Нийтлэгдсэн",
+        4 => "Хаалт хүсэлт",
+        5 => "Хаагдсан",
+        6 => "Цуцлагдсан",
+        _ => "-"
+    };
+
+    private static string StatusColor(int s) => s switch
+    {
+        3 => "#2c7a7b",
+        2 => "#dd6b20",
+        4 => "#3182ce",
+        5 => "#718096",
+        6 => "#e53e3e",
+        _ => "#a0aec0"
+    };
+}

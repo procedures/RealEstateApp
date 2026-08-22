@@ -1,0 +1,192 @@
+﻿@page "/contact"
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject ISiteRepository SiteRepo
+@inject ISnackbar Snackbar
+<PageTitle>@(_page?.Title ?? "Холбоо барих")</PageTitle>
+
+<div class="ct">
+    <SiteHeader />
+
+    @if (_loading)
+    {
+        <div class="ct-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+    }
+    else
+    {
+        <div class="ct-hero">
+            <div class="ct-container">
+                <h1 class="ct-h1">@(_page?.Title ?? "Холбоо барих")</h1>
+                @if (!string.IsNullOrWhiteSpace(_page?.Subtitle))
+                {
+                    <p class="ct-sub">@_page.Subtitle</p>
+                }
+            </div>
+        </div>
+
+        <div class="ct-container ct-body">
+            <!-- Мэдээлэл -->
+            <aside class="ct-info">
+                @if (_s.Has("contact_address"))
+                {
+                    <div class="ci-card">
+                        <div class="ci-ic"><MudIcon Icon="@Icons.Material.Filled.LocationOn" /></div>
+                        <div>
+                            <div class="ci-lbl">Хаяг</div>
+                            <div class="ci-val">@_s["contact_address"]</div>
+                        </div>
+                    </div>
+                }
+
+                @if (_s.Has("contact_phone") || _s.Has("contact_phone2"))
+                {
+                    <div class="ci-card">
+                        <div class="ci-ic"><MudIcon Icon="@Icons.Material.Filled.Phone" /></div>
+                        <div>
+                            <div class="ci-lbl">Утас</div>
+                            @if (_s.Has("contact_phone"))
+                            {
+                                <a href="tel:@_s["contact_phone"]" class="ci-val link">@_s["contact_phone"]</a>
+                            }
+                            @if (_s.Has("contact_phone2"))
+                            {
+                                <a href="tel:@_s["contact_phone2"]" class="ci-val link">@_s["contact_phone2"]</a>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (_s.Has("contact_email"))
+                {
+                    <div class="ci-card">
+                        <div class="ci-ic"><MudIcon Icon="@Icons.Material.Filled.Email" /></div>
+                        <div>
+                            <div class="ci-lbl">И-мэйл</div>
+                            <a href="mailto:@_s["contact_email"]" class="ci-val link">@_s["contact_email"]</a>
+                        </div>
+                    </div>
+                }
+
+                @if (_s.Has("work_hours"))
+                {
+                    <div class="ci-card">
+                        <div class="ci-ic"><MudIcon Icon="@Icons.Material.Filled.Schedule" /></div>
+                        <div>
+                            <div class="ci-lbl">Ажиллах цаг</div>
+                            @foreach (var line in _s.Lines("work_hours"))
+                            {
+                                <div class="ci-val">@line</div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (_s.Has("social_facebook") || _s.Has("social_instagram") || _s.Has("social_twitter"))
+                {
+                    <div class="ct-social">
+                        @if (_s.Has("social_facebook"))
+                        {
+                            <a href="@_s["social_facebook"]" target="_blank" class="soc"><MudIcon Icon="@Icons.Custom.Brands.Facebook" /></a>
+                        }
+                        @if (_s.Has("social_instagram"))
+                        {
+                            <a href="@_s["social_instagram"]" target="_blank" class="soc"><MudIcon Icon="@Icons.Custom.Brands.Instagram" /></a>
+                        }
+                        @if (_s.Has("social_twitter"))
+                        {
+                            <a href="@_s["social_twitter"]" target="_blank" class="soc"><MudIcon Icon="@Icons.Custom.Brands.Twitter" /></a>
+                        }
+                    </div>
+                }
+            </aside>
+
+            <!-- Маягт -->
+            <main class="ct-form">
+                <h2 class="ct-h2">Мессеж илгээх</h2>
+                @if (!string.IsNullOrWhiteSpace(_page?.Content))
+                {
+                    <p class="ct-note">@_page.Content</p>
+                }
+
+                <MudForm @ref="_form" Model="_input">
+                    <div class="ct-grid">
+                        <MudTextField T="string" @bind-Value="_input.FullName" Label="Таны нэр *"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Required="true" RequiredError="Нэрээ оруулна уу" />
+                        <MudTextField T="string" @bind-Value="_input.Phone" Label="Утасны дугаар"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudTextField T="string" @bind-Value="_input.Email" Label="И-мэйл"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudTextField T="string" @bind-Value="_input.Subject" Label="Гарчиг"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <div class="ct-full">
+                            <MudTextField T="string" @bind-Value="_input.Message" Label="Мессеж *"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Lines="5"
+                                          Required="true" RequiredError="Мессежээ бичнэ үү" />
+                        </div>
+                    </div>
+
+                    <p class="ct-hint">Утас эсвэл и-мэйлийн аль нэгийг заавал оруулна уу.</p>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Send"
+                               OnClick="SubmitAsync" Disabled="_sending" Class="ct-btn">
+                        @(_sending ? "Илгээж байна…" : "Илгээх")
+                    </MudButton>
+                </MudForm>
+            </main>
+        </div>
+
+        @if (_s.Has("map_embed"))
+        {
+            <div class="ct-map">
+                <iframe src="@_s["map_embed"]" loading="lazy" allowfullscreen></iframe>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _loading = true, _sending;
+    private MudForm _form = default!;
+    private SitePage? _page;
+    private SiteSettingsBag _s = new(Array.Empty<SiteSetting>());
+    private ContactInput _input = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _s = await SiteRepo.GetSettingsAsync();
+        _page = await SiteRepo.GetPageAsync("contact");
+        _loading = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Шаардлагатай талбаруудыг бөглөнө үү.", Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_input.Phone) && string.IsNullOrWhiteSpace(_input.Email))
+        {
+            Snackbar.Add("Утас эсвэл и-мэйлээ оруулна уу.", Severity.Warning);
+            return;
+        }
+
+        _sending = true;
+        try
+        {
+            var r = await SiteRepo.SendMessageAsync(_input);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) _input = new ContactInput();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+        }
+        finally { _sending = false; }
+    }
+}

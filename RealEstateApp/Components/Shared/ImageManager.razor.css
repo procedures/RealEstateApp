@@ -1,0 +1,138 @@
+﻿.im {
+    --g: var(--mud-palette-primary);
+}
+
+.im-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.im-h {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a3c40;
+}
+
+.im-hint {
+    color: #8a949a;
+    font-size: .78rem;
+    margin: 6px 0 14px;
+}
+
+.im-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--g);
+    color: #fff;
+    font-size: .82rem;
+    padding: 8px 18px;
+    border-radius: 18px;
+    cursor: pointer;
+    transition: .15s;
+}
+
+    .im-upload:hover {
+        opacity: .9;
+    }
+
+    .im-upload.disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+    .im-upload ::deep input[type=file] {
+        display: none;
+    }
+
+.im-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.im-item {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 3px solid transparent;
+}
+
+    .im-item.main {
+        border-color: var(--g);
+    }
+
+.im-thumb {
+    height: 110px;
+    background-size: cover;
+    background-position: center;
+    background-color: #e2e8f0;
+}
+
+.im-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: var(--g);
+    color: #fff;
+    font-size: .68rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 5px;
+}
+
+.im-tools {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 5px;
+    opacity: 0;
+    transition: .15s;
+}
+
+.im-item:hover .im-tools {
+    opacity: 1;
+}
+
+.im-tool {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,.92);
+    color: #4a5568;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+    .im-tool:hover {
+        background: #fff;
+    }
+
+    .im-tool.del:hover {
+        color: #e53e3e;
+    }
+
+    .im-tool:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+.im-empty {
+    background: #f7fafc;
+    border: 2px dashed #e2e8f0;
+    border-radius: 12px;
+    padding: 34px 20px;
+    text-align: center;
+    color: #a0aec0;
+}
+
+    .im-empty p {
+        margin: 8px 0 0;
+        font-size: .88rem;
+    }

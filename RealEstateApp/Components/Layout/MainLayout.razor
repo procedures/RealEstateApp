@@ -1,0 +1,30 @@
+﻿@using MudBlazor
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#2c7a7b",
+            PrimaryDarken = "#276869",   // hover/дарах үед бараан
+            PrimaryLighten = "#4a9b9c",  // цайвар хувилбар
+            AppbarBackground = "#2c7a7b" // дээд AppBar-ыг ижил өнгөөр
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#2c7a7b"
+        }
+    };
+}

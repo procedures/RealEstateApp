@@ -1,0 +1,485 @@
+﻿@page "/admin/agents"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using Microsoft.AspNetCore.Identity
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IAgentRepository AgentRepo
+@inject IPasswordHasher<AgentAccount> Hasher
+@inject ISnackbar Snackbar
+<PageTitle>Агент удирдах</PageTitle>
+
+<div class="ad">
+    <SiteHeader />
+
+    <div class="ad-container">
+        <div class="ad-top">
+            <div>
+                <h1 class="ad-h1">Агент удирдах</h1>
+                <p class="ad-sub">
+                    Идэвхтэй <b>@_activeCount</b> · Идэвхгүй <b>@_inactiveCount</b>
+                </p>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PersonAdd"
+                       OnClick="OpenCreate">
+                Шинэ агент нэмэх
+            </MudButton>
+        </div>
+
+        @* ===================== ҮҮСГЭХ / ЗАСАХ МАЯГТ ===================== *@
+        @if (_editing)
+        {
+            <div class="ag-form">
+                <div class="agf-head">
+                    <h3 class="agf-h">
+                        <MudIcon Icon="@(_input.AgentId == 0 ? Icons.Material.Filled.PersonAdd : Icons.Material.Filled.Edit)" Size="Size.Small" />
+                        @(_input.AgentId == 0 ? "Шинэ агент бүртгэх" : $"Засах — {_input.LastName} {_input.FirstName}")
+                    </h3>
+                    <button type="button" class="agf-close" @onclick="CloseForm">
+                        <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                    </button>
+                </div>
+
+                @* --- Зураг --- *@
+                @if (_input.AgentId > 0)
+                {
+                    <div class="agf-photo">
+                        <AgentPhotoUpload AgentId="_input.AgentId"
+                                          ActorAgentId="_adminId"
+                                          PhotoUrl="@_editingPhotoUrl"
+                                          FullName="@($"{_input.LastName} {_input.FirstName}")"
+                                          PhotoChanged="OnPhotoChanged" />
+                    </div>
+                }
+                else
+                {
+                    <div class="agf-note">
+                        <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+                        <span>Хадгалсны дараа зураг оруулах боломжтой болно.</span>
+                    </div>
+                }
+
+                <MudForm @ref="_form" Model="_input">
+                    <div class="agf-grid">
+                        <MudTextField T="string" @bind-Value="_input.LastName" Label="Овог *"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Required="true" RequiredError="Овог оруулна уу" />
+                        <MudTextField T="string" @bind-Value="_input.FirstName" Label="Нэр *"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Required="true" RequiredError="Нэр оруулна уу" />
+                        <MudTextField T="string" @bind-Value="_input.Phone" Label="Утас"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudTextField T="string" @bind-Value="_input.Email" Label="И-мэйл *"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Required="true" RequiredError="И-мэйл оруулна уу"
+                                      HelperText="Нэвтрэхэд ашиглана" />
+
+                        <MudSelect T="int?" @bind-Value="_input.BranchId" Label="Салбар"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true">
+                            @foreach (var b in _branches.Where(x => x.IsActive))
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)b.BranchId)">@b.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudSelect T="string" @bind-Value="_input.Role" Label="Эрх"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                            <MudSelectItem T="string" Value="@("Agent")">Агент</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Admin")">Админ</MudSelectItem>
+                        </MudSelect>
+
+                        @if (_input.AgentId == 0)
+                        {
+                            <div class="agf-full">
+                                <MudTextField T="string" @bind-Value="_input.Password" Label="Түр нууц үг *"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                                              Adornment="Adornment.End"
+                                              AdornmentIcon="@Icons.Material.Filled.Autorenew"
+                                              OnAdornmentClick="GeneratePassword"
+                                              HelperText="Агентад дамжуулна. Дүрс дарж санамсаргүй үүсгэнэ." />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="agf-actions">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                                   OnClick="CloseForm" Disabled="_busy">Болих</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                                   StartIcon="@Icons.Material.Filled.Save" OnClick="SaveAsync">
+                            @(_busy ? "Хадгалж байна…" : "Хадгалах")
+                        </MudButton>
+                    </div>
+                </MudForm>
+            </div>
+        }
+
+        @* ========================== ШҮҮЛТҮҮР ========================== *@
+        <div class="ag-filter">
+            <MudTextField T="string" @bind-Value="_search" Label="Хайх"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Placeholder="Нэр, и-мэйл, утас" Clearable="true" OnKeyUp="OnSearchKey" />
+
+            <MudSelect T="string" Value="_role" ValueChanged="OnRoleChangedAsync" Label="Эрх"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                <MudSelectItem T="string" Value="@("")">Бүгд</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Agent")">Агент</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Admin")">Админ</MudSelectItem>
+            </MudSelect>
+
+            <MudSelect T="string" Value="_activeFilter" ValueChanged="OnActiveChangedAsync" Label="Төлөв"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                <MudSelectItem T="string" Value="@("")">Бүгд</MudSelectItem>
+                <MudSelectItem T="string" Value="@("1")">Идэвхтэй</MudSelectItem>
+                <MudSelectItem T="string" Value="@("0")">Идэвхгүй</MudSelectItem>
+            </MudSelect>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FilterAlt" OnClick="ApplyAsync">Шүүх</MudButton>
+        </div>
+
+        @* =========================== ЖАГСААЛТ ========================== *@
+        @if (_loading)
+        {
+            <div class="ad-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="ad-empty">
+                <MudIcon Icon="@Icons.Material.Filled.PersonSearch" Size="Size.Large" />
+                <p>Тохирох агент олдсонгүй.</p>
+            </div>
+        }
+        else
+        {
+            <div class="ag-list">
+                @foreach (var a in _items)
+                {
+                    var agent = a;
+                    <div class="agc @(agent.IsActive ? "" : "off")">
+                        <div class="agc-ava">
+                            @if (!string.IsNullOrWhiteSpace(agent.PhotoUrl))
+                            {
+                                <img src="@agent.PhotoUrl" alt="" />
+                            }
+                            else
+                            {
+                                <span class="agc-initial">@Initial(agent.FullName)</span>
+                            }
+                        </div>
+
+                        <div class="agc-main">
+                            <div class="agc-nameline">
+                                <span class="agc-name">@agent.FullName</span>
+                                <span class="agc-role @(agent.Role == "Admin" ? "admin" : "")">
+                                    @(agent.Role == "Admin" ? "Админ" : "Агент")
+                                </span>
+                                @if (!agent.IsActive)
+                                {
+                                    <span class="agc-off">Идэвхгүй</span>
+                                }
+                            </div>
+                            <div class="agc-contacts">
+                                <span><MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" /> @agent.Email</span>
+                                @if (!string.IsNullOrWhiteSpace(agent.Phone))
+                                {
+                                    <span><MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" /> @agent.Phone</span>
+                                }
+                                <span><MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Small" /> @(agent.BranchName ?? "—")</span>
+                            </div>
+                        </div>
+
+                        <div class="agc-stats">
+                            <div><span class="agc-num">@agent.ActiveListings</span><span class="agc-lbl">идэвхтэй</span></div>
+                            <div><span class="agc-num">@agent.ClosedDeals</span><span class="agc-lbl">хаагдсан</span></div>
+                            <div><span class="agc-num">@agent.TotalListings</span><span class="agc-lbl">нийт</span></div>
+                        </div>
+
+                        <div class="agc-actions">
+                            @if (_confirm == (agent.AgentId, ActReset))
+                            {
+                                <span class="agc-confirm">Нууц үг шинэчлэх үү?</span>
+                                <button type="button" class="ad-btn" disabled="@_busy"
+                                        @onclick="() => ResetPasswordAsync(agent)">
+                                    Тийм
+                                </button>
+                                <button type="button" class="ad-btn outline" disabled="@_busy"
+                                        @onclick="() => _confirm = null">
+                                    Болих
+                                </button>
+                            }
+                            else if (_confirm == (agent.AgentId, ActToggle))
+                            {
+                                <span class="agc-confirm">@(agent.IsActive ? "Идэвхгүй болгох уу?" : "Идэвхжүүлэх үү?")</span>
+                                <button type="button" class="ad-btn @(agent.IsActive ? "danger" : "")" disabled="@_busy"
+                                        @onclick="() => ToggleActiveAsync(agent)">
+                                    Тийм
+                                </button>
+                                <button type="button" class="ad-btn outline" disabled="@_busy"
+                                        @onclick="() => _confirm = null">
+                                    Болих
+                                </button>
+                            }
+                            else
+                            {
+                                <a href="/agents/@agent.AgentId" class="ad-btn outline" target="_blank">Профайл</a>
+                                <button type="button" class="ad-btn outline" disabled="@_busy"
+                                        @onclick="() => OpenEdit(agent)">
+                                    Засах
+                                </button>
+                                <button type="button" class="ad-btn outline" disabled="@_busy"
+                                        @onclick="() => _confirm = (agent.AgentId, ActReset)">
+                                    Нууц үг
+                                </button>
+                                <button type="button" class="ad-btn @(agent.IsActive ? "danger" : "")" disabled="@_busy"
+                                        @onclick="() => _confirm = (agent.AgentId, ActToggle)">
+                                    @(agent.IsActive ? "Идэвхгүй" : "Идэвхжүүлэх")
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="ag-pager">
+                    <button class="pg-btn" disabled="@(_pageNumber <= 1)" @onclick="() => GoToPageAsync(_pageNumber - 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" />
+                    </button>
+                    @for (int i = 1; i <= TotalPages; i++)
+                    {
+                        var pnum = i;
+                        <button class="pg-btn @(pnum == _pageNumber ? "on" : "")"
+                                @onclick="() => GoToPageAsync(pnum)">
+                            @pnum
+                        </button>
+                    }
+                    <button class="pg-btn" disabled="@(_pageNumber >= TotalPages)" @onclick="() => GoToPageAsync(_pageNumber + 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                    </button>
+                </div>
+            }
+        }
+
+        @* ===== Үүсгэсэн нууц үгийг харуулах хайрцаг ===== *@
+        @if (!string.IsNullOrEmpty(_lastPassword))
+        {
+            <div class="pw-box">
+                <MudIcon Icon="@Icons.Material.Filled.Key" />
+                <div>
+                    <div class="pw-lbl">@_lastPasswordFor — түр нууц үг</div>
+                    <code class="pw-val">@_lastPassword</code>
+                    <div class="pw-hint">Энэ мэдээллийг агентад дамжуулна уу. Хуудсыг сэргээвэл алга болно.</div>
+                </div>
+                <button type="button" class="pw-close" @onclick="() => _lastPassword = null">
+                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private const int ActReset = 1;
+    private const int ActToggle = 2;
+
+    private MudForm _form = default!;
+    private bool _loading = true, _busy, _editing;
+    private int _adminId;
+
+    private List<AgentAdminItem> _items = new();
+    private List<BranchAdminItem> _branches = new();
+    private AgentInput _input = new();
+    private string? _editingPhotoUrl;
+    private (int Id, int Action)? _confirm;
+
+    private string? _search;
+    private string _role = "";
+    private string _activeFilter = "";
+    private int _pageNumber = 1, _total, _activeCount, _inactiveCount;
+    private const int PageSize = 20;
+
+    private string? _lastPassword, _lastPasswordFor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _adminId = auth.User.GetAgentId();
+
+        _branches = await AgentRepo.ListBranchesAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _confirm = null;
+        StateHasChanged();
+
+        bool? active = _activeFilter switch { "1" => true, "0" => false, _ => null };
+        var role = string.IsNullOrEmpty(_role) ? null : _role;
+
+        var res = await AgentRepo.ListAdminAsync(_search, role, null, active, _pageNumber, PageSize);
+        _items = res.Items.ToList();
+        _total = res.Total;
+
+        if (_items.Count > 0)
+        {
+            _activeCount = _items[0].ActiveCount;
+            _inactiveCount = _items[0].InactiveCount;
+        }
+
+        _loading = false;
+    }
+
+    private async Task ApplyAsync() { _pageNumber = 1; await LoadAsync(); }
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ApplyAsync(); }
+    private async Task OnRoleChangedAsync(string v) { _role = v; _pageNumber = 1; await LoadAsync(); }
+    private async Task OnActiveChangedAsync(string v) { _activeFilter = v; _pageNumber = 1; await LoadAsync(); }
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        _pageNumber = page;
+        await LoadAsync();
+    }
+
+    private int TotalPages => (int)Math.Ceiling(_total / (double)PageSize);
+
+    private void OpenCreate()
+    {
+        _input = new AgentInput { Role = "Agent", Password = NewPassword() };
+        _editingPhotoUrl = null;
+        _editing = true;
+    }
+
+    private void OpenEdit(AgentAdminItem a)
+    {
+        _input = new AgentInput
+        {
+            AgentId = a.AgentId,
+            LastName = a.LastName,
+            FirstName = a.FirstName,
+            Phone = a.Phone,
+            Email = a.Email,
+            BranchId = a.BranchId,
+            Role = a.Role
+        };
+        _editingPhotoUrl = a.PhotoUrl;
+        _editing = true;
+        _confirm = null;
+    }
+
+    private void CloseForm()
+    {
+        _editing = false;
+        _input = new AgentInput();
+        _editingPhotoUrl = null;
+    }
+
+    private void GeneratePassword() => _input.Password = NewPassword();
+
+    private async Task OnPhotoChanged(string? url)
+    {
+        _editingPhotoUrl = url;
+        await LoadAsync();   // жагсаалт дахь аватарыг шинэчилнэ
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Шаардлагатай талбаруудыг бөглөнө үү.", Severity.Warning);
+            return;
+        }
+
+        if (_input.AgentId == 0 && string.IsNullOrWhiteSpace(_input.Password))
+        {
+            Snackbar.Add("Түр нууц үг оруулна уу.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            if (_input.AgentId == 0)
+            {
+                var hash = Hasher.HashPassword(new AgentAccount(), _input.Password!);
+                var (r, newId) = await AgentRepo.CreateAsync(_input, hash, _adminId);
+
+                Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+                if (r.Ok)
+                {
+                    _lastPassword = _input.Password;
+                    _lastPasswordFor = $"{_input.LastName} {_input.FirstName}";
+
+                    // Шинэ агентыг шууд засварлах горимд үлдээж зураг оруулах боломж өгнө
+                    _input.AgentId = newId;
+                    _input.Password = null;
+                    _editingPhotoUrl = null;
+
+                    await LoadAsync();
+                    Snackbar.Add("Одоо зураг оруулж болно.", Severity.Info);
+                }
+            }
+            else
+            {
+                var r = await AgentRepo.UpdateAsync(_input, _adminId);
+                Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+                if (r.Ok) { CloseForm(); await LoadAsync(); }
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task ToggleActiveAsync(AgentAdminItem a)
+    {
+        _busy = true;
+        try
+        {
+            var r = await AgentRepo.SetActiveAsync(a.AgentId, !a.IsActive, _adminId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    private async Task ResetPasswordAsync(AgentAdminItem a)
+    {
+        _busy = true;
+        try
+        {
+            var pwd = NewPassword();
+            var hash = Hasher.HashPassword(new AgentAccount(), pwd);
+            var r = await AgentRepo.ResetPasswordAsync(a.AgentId, hash, _adminId);
+
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok)
+            {
+                _lastPassword = pwd;
+                _lastPasswordFor = a.FullName;
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    // Уншихад амархан санамсаргүй нууц үг
+    private static string NewPassword()
+    {
+        const string chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var rnd = Random.Shared;
+        var body = new string(Enumerable.Range(0, 8).Select(_ => chars[rnd.Next(chars.Length)]).ToArray());
+        return body + "!" + rnd.Next(10, 99);
+    }
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
+}

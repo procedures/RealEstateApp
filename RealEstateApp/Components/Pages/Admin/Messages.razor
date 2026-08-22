@@ -1,0 +1,250 @@
+﻿@page "/admin/messages"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject ISiteRepository SiteRepo
+@inject ISnackbar Snackbar
+<PageTitle>Ирсэн мессежүүд</PageTitle>
+
+<div class="ad">
+    <SiteHeader />
+
+    <div class="ad-container">
+        <div class="ad-top">
+            <h1 class="ad-h1">Ирсэн мессежүүд</h1>
+            <p class="ad-sub">
+                Нийт <b>@_total</b> мессеж
+                @if (_unreadCount > 0)
+                {
+                    <span class="ms-unreadinline">· @_unreadCount уншаагүй</span>
+                }
+            </p>
+        </div>
+
+        <div class="ad-tabs">
+            <button class="ad-tab @(!_unreadOnly ? "active" : "")" @onclick="() => SetFilterAsync(false)">
+                Бүгд
+            </button>
+            <button class="ad-tab @(_unreadOnly ? "active" : "")" @onclick="() => SetFilterAsync(true)">
+                Уншаагүй
+                @if (_unreadCount > 0)
+                {
+                    <span class="ad-dot">@_unreadCount</span>
+                }
+            </button>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ad-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="ad-empty">
+                <MudIcon Icon="@Icons.Material.Filled.MarkEmailRead" Size="Size.Large" />
+                <p>@(_unreadOnly ? "Уншаагүй мессеж байхгүй байна." : "Одоогоор мессеж ирээгүй байна.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="ms-list">
+                @foreach (var m in _items)
+                {
+                    var msg = m;
+                    <div class="ms-card @(msg.IsRead ? "" : "unread")">
+                        <div class="ms-head">
+                            <div class="ms-from">
+                                <div class="ms-ava">@Initial(msg.FullName)</div>
+                                <div>
+                                    <div class="ms-name">
+                                        @msg.FullName
+                                        @if (!msg.IsRead)
+                                        {
+                                            <span class="ms-new">ШИНЭ</span>
+                                        }
+                                    </div>
+                                    <div class="ms-contacts">
+                                        @if (!string.IsNullOrWhiteSpace(msg.Phone))
+                                        {
+                                            <a href="tel:@msg.Phone" class="ms-link">
+                                                <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" /> @msg.Phone
+                                            </a>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(msg.Email))
+                                        {
+                                            <a href="mailto:@msg.Email" class="ms-link">
+                                                <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" /> @msg.Email
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ms-time">@Ago(msg.CreatedAt)</div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(msg.Subject))
+                        {
+                            <div class="ms-subject">@msg.Subject</div>
+                        }
+
+                        <div class="ms-body">@msg.Message</div>
+
+                        <div class="ms-foot">
+                            <span class="ms-date">@msg.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+
+                            <div class="ms-actions">
+                                @if (!string.IsNullOrWhiteSpace(msg.Email))
+                                {
+                                    <a href="@MailTo(msg)" class="ad-btn outline">Хариу бичих</a>
+                                }
+                                @if (!msg.IsRead)
+                                {
+                                    <button type="button" class="ad-btn" disabled="@_busy"
+                                            @onclick="() => MarkReadAsync(msg.MessageId)">
+                                        Уншсан
+                                    </button>
+                                }
+
+                                @if (_confirmDeleteId == msg.MessageId)
+                                {
+                                    <span class="ms-confirm">Устгах уу?</span>
+                                    <button type="button" class="ad-btn danger" disabled="@_busy"
+                                            @onclick="() => DeleteAsync(msg.MessageId)">
+                                        Тийм
+                                    </button>
+                                    <button type="button" class="ad-btn outline" disabled="@_busy"
+                                            @onclick="() => _confirmDeleteId = null">
+                                        Болих
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="ad-btn danger" disabled="@_busy"
+                                            @onclick="() => _confirmDeleteId = msg.MessageId">
+                                        Устгах
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="ms-pager">
+                    <button class="pg-btn" disabled="@(_pageNumber <= 1)" @onclick="() => GoToPageAsync(_pageNumber - 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" />
+                    </button>
+                    @for (int i = 1; i <= TotalPages; i++)
+                    {
+                        var pnum = i;
+                        <button class="pg-btn @(pnum == _pageNumber ? "on" : "")" @onclick="() => GoToPageAsync(pnum)">@pnum</button>
+                    }
+                    <button class="pg-btn" disabled="@(_pageNumber >= TotalPages)" @onclick="() => GoToPageAsync(_pageNumber + 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private bool _loading = true, _busy;
+    private int _adminId;
+    private string _userName = "";
+    private bool _unreadOnly;
+    private int? _confirmDeleteId;
+
+    private List<ContactMessage> _items = new();
+    private int _total, _unreadCount, _pageNumber = 1;
+    private const int PageSize = 20;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _adminId = auth.User.GetAgentId();
+        _userName = auth.User.GetFullName();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _confirmDeleteId = null;
+        StateHasChanged();
+
+        var res = await SiteRepo.ListMessagesAsync(_unreadOnly, _pageNumber, PageSize);
+        _items = res.Items.ToList();
+        _total = res.Total;
+        _unreadCount = _items.Count > 0 ? _items[0].UnreadCount : 0;
+
+        _loading = false;
+    }
+
+    private async Task SetFilterAsync(bool unreadOnly)
+    {
+        _unreadOnly = unreadOnly;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        _pageNumber = page;
+        await LoadAsync();
+    }
+
+    private async Task MarkReadAsync(int id)
+    {
+        _busy = true;
+        try
+        {
+            var r = await SiteRepo.MarkReadAsync(id, _adminId);
+            if (r.Ok) await LoadAsync();
+            else Snackbar.Add(r.Message, Severity.Error);
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        _busy = true;
+        try
+        {
+            var r = await SiteRepo.DeleteMessageAsync(id, _adminId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirmDeleteId = null; }
+    }
+
+    private int TotalPages => (int)Math.Ceiling(_total / (double)PageSize);
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
+
+    private static string MailTo(ContactMessage m)
+    {
+        var subject = string.IsNullOrWhiteSpace(m.Subject) ? "Таны хүсэлтийн хариу" : "Re: " + m.Subject;
+        return $"mailto:{m.Email}?subject={Uri.EscapeDataString(subject)}";
+    }
+
+    // "3 цагийн өмнө" маягийн харуулалт
+    private static string Ago(DateTime dt)
+    {
+        var diff = DateTime.Now - dt;
+        if (diff.TotalMinutes < 1) return "Дөнгөж сая";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} минутын өмнө";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours} цагийн өмнө";
+        if (diff.TotalDays < 30) return $"{(int)diff.TotalDays} хоногийн өмнө";
+        return dt.ToString("yyyy-MM-dd");
+    }
+}

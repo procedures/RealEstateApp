@@ -1,0 +1,127 @@
+﻿@using MudBlazor
+@using RealEstateApp.Data.Repositories
+@using RealEstateApp.Services
+@inject IAgentRepository AgentRepo
+@inject IImageStorageService Storage
+@inject ISnackbar Snackbar
+
+<div class="ap">
+    <div class="ap-preview @(_busy ? "busy" : "")">
+        @if (!string.IsNullOrWhiteSpace(_url))
+        {
+            <img src="@_url" alt="" />
+        }
+        else
+        {
+            <span class="ap-initial">@Initial</span>
+        }
+
+        @if (_busy)
+        {
+            <div class="ap-overlay"><MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" /></div>
+        }
+    </div>
+
+    <div class="ap-side">
+        <div class="ap-title">Профайл зураг</div>
+        <div class="ap-hint">JPG, PNG, WEBP · 5MB хүртэл</div>
+
+        <div class="ap-buttons">
+            <label class="ap-btn @(_busy ? "disabled" : "")">
+                <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Small" />
+                @(string.IsNullOrWhiteSpace(_url) ? "Зураг оруулах" : "Солих")
+                <InputFile OnChange="OnSelected" accept="image/*" disabled="@_busy" />
+            </label>
+
+            @if (!string.IsNullOrWhiteSpace(_url))
+            {
+                <button type="button" class="ap-btn outline" disabled="@_busy" @onclick="RemoveAsync">
+                    <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" /> Устгах
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int AgentId { get; set; }
+    [Parameter] public int ActorAgentId { get; set; }
+    [Parameter] public string? PhotoUrl { get; set; }
+    [Parameter] public string FullName { get; set; } = "";
+    [Parameter] public EventCallback<string?> PhotoChanged { get; set; }
+
+    private string? _url;
+    private bool _busy;
+
+    protected override void OnParametersSet() => _url ??= PhotoUrl;
+
+    private string Initial =>
+        string.IsNullOrWhiteSpace(FullName) ? "?" : FullName.Trim()[0].ToString().ToUpper();
+
+    private async Task OnSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        if (!Storage.IsAllowed(file, out var err))
+        {
+            Snackbar.Add(err, Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var uploaded = await Storage.UploadAsync(file, $"agents/{AgentId}");
+            var (r, oldPublicId) = await AgentRepo.SetPhotoAsync(
+                AgentId, uploaded.Url, uploaded.PublicId, ActorAgentId);
+
+            if (r.Ok)
+            {
+                // Хуучин зургийг Cloudinary-оос хасна
+                if (!string.IsNullOrWhiteSpace(oldPublicId))
+                {
+                    try { await Storage.DeleteAsync(oldPublicId); } catch { }
+                }
+
+                _url = uploaded.Url;
+                await PhotoChanged.InvokeAsync(_url);
+                Snackbar.Add(r.Message, Severity.Success);
+            }
+            else
+            {
+                await Storage.DeleteAsync(uploaded.PublicId);   // баазад орсонгүй
+                Snackbar.Add(r.Message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task RemoveAsync()
+    {
+        _busy = true;
+        try
+        {
+            var (r, oldPublicId) = await AgentRepo.SetPhotoAsync(AgentId, null, null, ActorAgentId);
+
+            if (r.Ok)
+            {
+                if (!string.IsNullOrWhiteSpace(oldPublicId))
+                {
+                    try { await Storage.DeleteAsync(oldPublicId); } catch { }
+                }
+
+                _url = null;
+                await PhotoChanged.InvokeAsync(null);
+                Snackbar.Add(r.Message, Severity.Success);
+            }
+            else Snackbar.Add(r.Message, Severity.Error);
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+}

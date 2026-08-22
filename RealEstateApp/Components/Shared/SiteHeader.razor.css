@@ -1,0 +1,340 @@
+﻿.hd {
+    --g: var(--mud-palette-primary, #2c7a7b);
+    background: #fff;
+    box-shadow: 0 1px 8px rgba(0,0,0,.07);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    font-family: Roboto, sans-serif;
+}
+
+.hd-inner {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 20px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    position: relative;
+    z-index: 2;
+}
+
+/* Гол цэс */
+.hd-nav {
+    display: flex;
+    gap: 4px;
+    margin-left: 8px;
+}
+
+    .hd-nav a {
+        color: #5a6772;
+        text-decoration: none;
+        font-size: .92rem;
+        padding: 8px 14px;
+        border-radius: 8px;
+        white-space: nowrap;
+        transition: background .15s, color .15s;
+    }
+
+        .hd-nav a:hover {
+            background: #f1f5f6;
+            color: #1a3c40;
+        }
+
+        .hd-nav a.active {
+            color: var(--g);
+            font-weight: 600;
+            background: #e9f3f3;
+        }
+
+/* Баруун тал */
+.hd-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hd-login {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--g);
+    color: #fff;
+    padding: 9px 20px;
+    border-radius: 22px;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    transition: opacity .15s;
+}
+
+    .hd-login:hover {
+        opacity: .88;
+    }
+
+/* Хэрэглэгчийн товч */
+.hd-account {
+    position: relative;
+}
+
+.hd-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px 6px 6px;
+    border-radius: 26px;
+    cursor: pointer;
+    background: #fff;
+    border: 1.5px solid #e8edee;
+    font-family: inherit;
+    transition: border-color .15s, background .15s;
+}
+
+    .hd-user:hover, .hd-user.on {
+        border-color: var(--g);
+        background: #f7fbfb;
+    }
+
+        .hd-user.on .hd-caret {
+            transform: rotate(180deg);
+        }
+
+.hd-avawrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.hd-ava {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--g);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: .95rem;
+}
+
+.hd-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: #e53e3e;
+    color: #fff;
+    font-size: .66rem;
+    font-weight: 700;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
+}
+
+.hd-uinfo {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    text-align: left;
+}
+
+.hd-uname {
+    font-size: .86rem;
+    font-weight: 600;
+    color: #1a3c40;
+    white-space: nowrap;
+}
+
+.hd-urole {
+    font-size: .7rem;
+    color: #98a4ab;
+}
+
+.hd-caret {
+    color: #98a4ab;
+    transition: transform .18s;
+}
+
+/* Унжих цэс */
+.hd-drop {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    min-width: 252px;
+    background: #fff;
+    border-radius: 13px;
+    box-shadow: 0 10px 34px rgba(0,0,0,.16);
+    padding: 6px;
+    z-index: 40;
+    animation: hd-in .14s ease-out;
+}
+
+@keyframes hd-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hd-mhead {
+    padding: 10px 12px 12px;
+    border-bottom: 1px solid #edf2f7;
+    margin-bottom: 6px;
+}
+
+.hd-mname {
+    font-weight: 700;
+    color: #1a3c40;
+    font-size: .95rem;
+}
+
+.hd-mrole {
+    color: #98a4ab;
+    font-size: .76rem;
+    margin-top: 2px;
+}
+
+.hd-mlabel {
+    color: #a8b2b9;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    padding: 8px 12px 4px;
+}
+
+.hd-mitem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    color: #3d4d57;
+    text-decoration: none;
+    font-size: .89rem;
+    transition: background .12s, color .12s;
+}
+
+    .hd-mitem:hover {
+        background: #f1f5f6;
+        color: var(--g);
+    }
+
+    .hd-mitem.danger {
+        color: #c53030;
+    }
+
+        .hd-mitem.danger:hover {
+            background: #fff0f0;
+            color: #9b2c2c;
+        }
+
+.hd-mcount {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: #e53e3e;
+    color: #fff;
+    font-size: .7rem;
+    font-weight: 700;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hd-msep {
+    height: 1px;
+    background: #edf2f7;
+    margin: 6px 4px;
+}
+
+/* Гадуур дарахад хаах давхарга */
+.hd-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+}
+
+/* Hamburger */
+.hd-burger {
+    display: none;
+    background: none;
+    border: none;
+    color: #4a5568;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+}
+
+    .hd-burger:hover {
+        background: #f1f5f6;
+    }
+
+@media (max-width: 1000px) {
+    .hd-inner {
+        gap: 14px;
+        padding: 0 16px;
+    }
+
+    .hd-burger {
+        display: flex;
+    }
+
+    .hd-nav {
+        position: absolute;
+        top: 68px;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        gap: 0;
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(0,0,0,.12);
+        padding: 8px 16px 16px;
+        margin: 0;
+        display: none;
+        z-index: 40;
+    }
+
+        .hd-nav.open {
+            display: flex;
+        }
+
+        .hd-nav a {
+            padding: 13px 12px;
+            border-radius: 0;
+            border-bottom: 1px solid #f4f6f8;
+        }
+
+            .hd-nav a.active {
+                background: none;
+            }
+}
+
+@media (max-width: 560px) {
+    .hd-uinfo {
+        display: none;
+    }
+
+    .hd-user {
+        padding: 4px;
+        border: none;
+    }
+
+    .hd-drop {
+        right: -8px;
+        min-width: 238px;
+    }
+}

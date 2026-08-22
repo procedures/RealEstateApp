@@ -1,0 +1,20 @@
+﻿.fact {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+}
+
+.fact-ic {
+    color: var(--mud-palette-primary);
+}
+
+.fact-lbl {
+    color: #8a949a;
+    font-size: .74rem;
+}
+
+.fact-val {
+    color: #1a202c;
+    font-weight: 700;
+    font-size: .95rem;
+}

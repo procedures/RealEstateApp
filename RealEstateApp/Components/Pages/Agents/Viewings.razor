@@ -1,0 +1,300 @@
+﻿@page "/agent/viewings"
+@attribute [Authorize]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IViewingRepository ViewingRepo
+@inject ISnackbar Snackbar
+<PageTitle>Үзлэгийн хүсэлт</PageTitle>
+
+<div class="vw">
+    <SiteHeader />
+
+    <div class="vw-container">
+        <div class="vw-top">
+            <div>
+                <h1 class="vw-h1">Үзлэгийн хүсэлт</h1>
+                <p class="vw-sub">
+                    Нийт <b>@_total</b> хүсэлт
+                    @if (_newCount > 0)
+                    {
+                        <span class="vw-newinline">· @_newCount шинэ</span>
+                    }
+                </p>
+            </div>
+
+            @if (_isAdmin)
+            {
+                <div class="vw-scope">
+                    <button class="vw-sbtn @(_mineOnly ? "on" : "")" @onclick="() => SetScopeAsync(true)">Миний</button>
+                    <button class="vw-sbtn @(!_mineOnly ? "on" : "")" @onclick="() => SetScopeAsync(false)">Бүгд</button>
+                </div>
+            }
+        </div>
+
+        <div class="vw-tabs">
+            @foreach (var t in Tabs)
+            {
+                var tab = t;
+                <button class="vw-tab @(_status == tab.Status ? "active" : "")"
+                        @onclick="() => SelectTabAsync(tab.Status)">
+                    @tab.Label
+                    @if (tab.Status == 1 && _newCount > 0)
+                    {
+                        <span class="vw-dot">@_newCount</span>
+                    }
+                </button>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <div class="vw-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="vw-empty">
+                <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Large" />
+                <p>Энэ төлөвт хүсэлт байхгүй байна.</p>
+            </div>
+        }
+        else
+        {
+            <div class="vw-list">
+                @foreach (var v in _items)
+                {
+                    var item = v;
+                    <div class="vwc @(item.Status == 1 ? "new" : "")">
+                        <div class="vwc-thumb" style="background-image:url('@Img(item)')"></div>
+
+                        <div class="vwc-body">
+                            <div class="vwc-head">
+                                <div>
+                                    <a href="/property/@item.PropertyId" class="vwc-prop" target="_blank">
+                                        @(item.ComplexName ?? "Хөрөнгө") №@item.PropertyId
+                                    </a>
+                                    <div class="vwc-addr">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @item.Address
+                                    </div>
+                                </div>
+                                <span class="vwc-status" style="background:@StatusColor(item.Status)">
+                                    @StatusLabel(item.Status)
+                                </span>
+                            </div>
+
+                            <div class="vwc-client">
+                                <div class="vwc-ava">@Initial(item.FullName)</div>
+                                <div class="vwc-cinfo">
+                                    <div class="vwc-name">@item.FullName</div>
+                                    <div class="vwc-contacts">
+                                        <a href="tel:@item.Phone" class="vwc-link">
+                                            <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" /> @item.Phone
+                                        </a>
+                                        @if (!string.IsNullOrWhiteSpace(item.Email))
+                                        {
+                                            <a href="mailto:@item.Email" class="vwc-link">
+                                                <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" /> @item.Email
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="vwc-when">
+                                    @if (item.PreferredDate.HasValue)
+                                    {
+                                        <div class="vwc-date">
+                                            <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" />
+                                            @item.PreferredDate.Value.ToString("MM-dd")
+                                        </div>
+                                    }
+                                    <div class="vwc-ago">@Ago(item.CreatedAt)</div>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(item.Note))
+                            {
+                                <div class="vwc-note">„@item.Note"</div>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(item.AgentNote))
+                            {
+                                <div class="vwc-anote">
+                                    <MudIcon Icon="@Icons.Material.Filled.StickyNote2" Size="Size.Small" />
+                                    @item.AgentNote
+                                </div>
+                            }
+
+                            <div class="vwc-foot">
+                                @if (_isAdmin && !_mineOnly)
+                                {
+                                    <span class="vwc-agent">Агент: <b>@item.AgentName</b></span>
+                                }
+
+                                <div class="vwc-actions">
+                                    @if (_open == item.ViewingId)
+                                    {
+                                        <MudTextField T="string" @bind-Value="_note" Placeholder="Тэмдэглэл (заавал биш)"
+                                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="vwc-notein" />
+                                        <button class="vw-btn" disabled="@_busy" @onclick="() => SetStatusAsync(item, 2)">Баталгаажуулах</button>
+                                        <button class="vw-btn ok" disabled="@_busy" @onclick="() => SetStatusAsync(item, 3)">Үзсэн</button>
+                                        <button class="vw-btn danger" disabled="@_busy" @onclick="() => SetStatusAsync(item, 4)">Цуцлах</button>
+                                        <button class="vw-btn outline" disabled="@_busy" @onclick="() => _open = null">Хаах</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="vw-btn outline" disabled="@_busy" @onclick="() => Open(item)">
+                                            Шийдвэрлэх
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="vw-pager">
+                    <button class="pg-btn" disabled="@(_pageNumber <= 1)" @onclick="() => GoToPageAsync(_pageNumber - 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" />
+                    </button>
+                    @for (int i = 1; i <= TotalPages; i++)
+                    {
+                        var pnum = i;
+                        <button class="pg-btn @(pnum == _pageNumber ? "on" : "")"
+                                @onclick="() => GoToPageAsync(pnum)">
+                            @pnum
+                        </button>
+                    }
+                    <button class="pg-btn" disabled="@(_pageNumber >= TotalPages)" @onclick="() => GoToPageAsync(_pageNumber + 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private static readonly (int? Status, string Label)[] Tabs =
+    {
+        (1, "Шинэ"),
+        (2, "Баталгаажсан"),
+        (3, "Үзсэн"),
+        (4, "Цуцлагдсан"),
+        (null, "Бүгд"),
+    };
+
+    private bool _loading = true, _busy, _isAdmin, _mineOnly = true;
+    private int _agentId;
+    private int? _status = 1;
+    private int? _open;
+    private string? _note;
+
+    private List<ViewingItem> _items = new();
+    private int _total, _newCount, _pageNumber = 1;
+    private const int PageSize = 20;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _agentId = auth.User.GetAgentId();
+        _isAdmin = auth.User.IsAdmin();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _open = null;
+        StateHasChanged();
+
+        int? scope = (_isAdmin && !_mineOnly) ? null : _agentId;
+
+        var res = await ViewingRepo.ListAsync(scope, _status, _pageNumber, PageSize);
+        _items = res.Items.ToList();
+        _total = res.Total;
+        _newCount = _items.Count > 0 ? _items[0].NewCount : await ViewingRepo.NewCountAsync(scope);
+
+        _loading = false;
+    }
+
+    private async Task SelectTabAsync(int? status)
+    {
+        _status = status;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task SetScopeAsync(bool mine)
+    {
+        _mineOnly = mine;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        _pageNumber = page;
+        await LoadAsync();
+    }
+
+    private void Open(ViewingItem v)
+    {
+        _open = v.ViewingId;
+        _note = v.AgentNote;
+    }
+
+    private async Task SetStatusAsync(ViewingItem v, int status)
+    {
+        _busy = true;
+        try
+        {
+            var r = await ViewingRepo.SetStatusAsync(v.ViewingId, status, _note, _agentId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) { _note = null; await LoadAsync(); }
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _open = null; }
+    }
+
+    private int TotalPages => (int)Math.Ceiling(_total / (double)PageSize);
+
+    private string Img(ViewingItem v) =>
+        string.IsNullOrEmpty(v.MainImagePath)
+            ? $"https://picsum.photos/seed/prop{v.PropertyId}/300/220"
+            : v.MainImagePath;
+
+    private static string Initial(string n) =>
+        string.IsNullOrWhiteSpace(n) ? "?" : n.Trim()[0].ToString().ToUpper();
+
+    private static string StatusLabel(int s) => s switch
+    {
+        1 => "Шинэ",
+        2 => "Баталгаажсан",
+        3 => "Үзсэн",
+        4 => "Цуцлагдсан",
+        _ => "-"
+    };
+
+    private static string StatusColor(int s) => s switch
+    {
+        1 => "#e53e3e",
+        2 => "#3182ce",
+        3 => "#2c7a7b",
+        4 => "#a0aec0",
+        _ => "#a0aec0"
+    };
+
+    private static string Ago(DateTime dt)
+    {
+        var diff = DateTime.Now - dt;
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} мин";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours} цаг";
+        if (diff.TotalDays < 30) return $"{(int)diff.TotalDays} хоног";
+        return dt.ToString("MM-dd");
+    }
+}

@@ -1,0 +1,361 @@
+﻿@page "/admin"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IPropertyRepository PropertyRepo
+@inject IDashboardRepository DashboardRepo
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+<PageTitle>Админ самбар</PageTitle>
+
+<div class="ad">
+    <SiteHeader />
+
+    <div class="ad-container">
+        <div class="ad-top">
+            <div>
+                <h1 class="ad-h1">Админ самбар</h1>
+                <p class="ad-sub">Хөрөнгийн бүртгэлийг шалгаж нийтэлнэ</p>
+            </div>
+            <a href="/admin/report" class="ad-btn outline">
+                <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" /> Агентын тайлан
+            </a>
+        </div>
+
+        <!-- Агентуудын чансаа -->
+        @if (_leaders.Count > 0)
+        {
+            <div class="ad-stats">
+                <!-- Хамгийн олон хөрөнгө бүртгэсэн -->
+                <div class="ad-stat-card">
+                    <div class="ad-stat-h">
+                        <MudIcon Icon="@Icons.Material.Filled.HomeWork" Size="Size.Small" />
+                        Хамгийн олон хөрөнгө бүртгэсэн
+                    </div>
+                    @if (_topByProperty.Count == 0)
+                    {
+                        <div class="ad-stat-empty">Мэдээлэл алга</div>
+                    }
+                    else
+                    {
+                        @foreach (var a in _topByProperty)
+                        {
+                            <div class="ad-stat-row">
+                                <span class="ad-stat-name">@a.FullName</span>
+                                <span class="ad-stat-val">@a.PropertyCount</span>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <!-- Хамгийн олон хаалт хийсэн -->
+                <div class="ad-stat-card">
+                    <div class="ad-stat-h">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                        Хамгийн олон хаалт хийсэн
+                    </div>
+                    @if (_topByClosure.Count == 0)
+                    {
+                        <div class="ad-stat-empty">Мэдээлэл алга</div>
+                    }
+                    else
+                    {
+                        @foreach (var a in _topByClosure)
+                        {
+                            <div class="ad-stat-row">
+                                <span class="ad-stat-name">@a.FullName</span>
+                                <span class="ad-stat-val">@a.ClosureCount</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Төлөвийн шүүлт -->
+        <div class="ad-tabs">
+            @foreach (var t in Tabs)
+            {
+                var tab = t;
+                <button class="ad-tab @(_status == tab.Status ? "active" : "")"
+                        @onclick="() => SelectTab(tab.Status)">
+                    @tab.Label
+                    @if (tab.Status == 2 && _pendingCount > 0)
+                    {
+                        <span class="ad-dot">@_pendingCount</span>
+                    }
+                </button>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ad-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="ad-empty">
+                <MudIcon Icon="@Icons.Material.Filled.Inbox" Size="Size.Large" />
+                <p>Энэ төлөвт хөрөнгө байхгүй байна.</p>
+            </div>
+        }
+        else
+        {
+            <div class="ad-list">
+                @foreach (var it in _items)
+                {
+                    <div class="ad-card">
+                        <div class="ad-thumb" style="background-image:url('@Img(it.PropertyId)')"></div>
+                        <div class="ad-body">
+                            <div class="ad-cardtop">
+                                <div>
+                                    <div class="ad-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                                    <div class="ad-addr">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.Address
+                                    </div>
+                                </div>
+                                <span class="ad-status" style="background:@StatusColor(it.Status)">
+                                    @StatusLabel(it.Status)
+                                </span>
+                            </div>
+
+                            <div class="ad-meta">
+                                <span><MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" /> @it.AgentName</span>
+                                <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0) өрөө</span>
+                                <span><MudIcon Icon="@Icons.Material.Filled.SquareFoot" Size="Size.Small" /> @it.AreaSize.ToString("0.#") м²</span>
+                                @if (!string.IsNullOrEmpty(it.ContractNumber))
+                                {
+                                    <span><MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" /> @it.ContractNumber</span>
+                                }
+                            </div>
+
+                            <div class="ad-foot">
+                                <span class="ad-price">@Money(it.Price)</span>
+                                <div class="ad-actions">
+                                    <a href="/property/@it.PropertyId" class="ad-btn outline">Харах</a>
+
+                                    @if (_confirm == (it.PropertyId, ActPublish))
+                                    {
+                                        <button class="ad-btn" disabled="@_busy"
+                                                @onclick="() => PublishAsync(it.PropertyId)">
+                                            Нийтлэх үү?
+                                        </button>
+                                        <button class="ad-btn outline" disabled="@_busy"
+                                                @onclick="() => _confirm = null">
+                                            Болих
+                                        </button>
+                                    }
+                                    else if (_confirm == (it.PropertyId, ActUnpublish))
+                                    {
+                                        <button class="ad-btn warn" disabled="@_busy"
+                                                @onclick="() => UnpublishAsync(it.PropertyId)">
+                                            Буцаах уу?
+                                        </button>
+                                        <button class="ad-btn outline" disabled="@_busy"
+                                                @onclick="() => _confirm = null">
+                                            Болих
+                                        </button>
+                                    }
+                                    else if (_confirm == (it.PropertyId, ActReject))
+                                    {
+                                        <button class="ad-btn danger" disabled="@_busy"
+                                                @onclick="() => RejectAsync(it.PropertyId)">
+                                            Итгэлтэй юу?
+                                        </button>
+                                        <button class="ad-btn outline" disabled="@_busy"
+                                                @onclick="() => _confirm = null">
+                                            Болих
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        @if (it.Status == 2 || it.Status == 6)
+                                        {
+                                            <button class="ad-btn" disabled="@_busy"
+                                                    @onclick="() => _confirm = (it.PropertyId, ActPublish)">
+                                                Нийтлэх
+                                            </button>
+                                        }
+                                        @if (it.Status == 3)
+                                        {
+                                            <button class="ad-btn warn" disabled="@_busy"
+                                                    @onclick="() => _confirm = (it.PropertyId, ActUnpublish)">
+                                                Нийтлэлээс буцаах
+                                            </button>
+                                        }
+                                        @if (it.Status != 5 && it.Status != 6)
+                                        {
+                                            <button class="ad-btn danger" disabled="@_busy"
+                                                    @onclick="() => _confirm = (it.PropertyId, ActReject)">
+                                                Цуцлах
+                                            </button>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    // Баталгаажуулах үйлдлийн кодууд
+    private const int ActPublish = 1;
+    private const int ActUnpublish = 2;
+    private const int ActReject = 3;
+
+    private static readonly (int? Status, string Label)[] Tabs =
+    {
+        (2, "Хүлээгдэж буй"),
+        (3, "Нийтлэгдсэн"),
+        (4, "Хаалт хүсэлт"),
+        (5, "Хаагдсан"),
+        (6, "Цуцлагдсан"),
+        (null, "Бүгд"),
+    };
+
+    private bool _loading = true, _busy;
+    private int _adminId;
+    private string _userName = "";
+    private int? _status = 2;                    // Анхдагч: хүлээгдэж буй
+    private (int Id, int Action)? _confirm;      // Баталгаажуулж буй мөр ба үйлдэл
+    private int _pendingCount;
+    private List<PropertyListItem> _items = new();
+
+    // Агентуудын чансаа
+    private List<AgentLeaderboardRow> _leaders = new();
+    private List<AgentLeaderboardRow> _topByProperty = new();
+    private List<AgentLeaderboardRow> _topByClosure = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _adminId = auth.User.GetAgentId();
+        _userName = auth.User.GetFullName();
+        await LoadStatsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        try
+        {
+            _leaders = await DashboardRepo.GetAdminStatsAsync(10);
+            _topByProperty = _leaders
+                .Where(x => x.PropertyCount > 0)
+                .OrderByDescending(x => x.PropertyCount)
+                .Take(5).ToList();
+            _topByClosure = _leaders
+                .Where(x => x.ClosureCount > 0)
+                .OrderByDescending(x => x.ClosureCount)
+                .Take(5).ToList();
+        }
+        catch
+        {
+            _leaders = new();
+            _topByProperty = new();
+            _topByClosure = new();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _confirm = null;
+
+        var res = await PropertyRepo.ListAsync(new PropertyFilter
+        {
+            OnlyPublished = false,     // админ бүх төлөвийг харна
+            Status = _status,
+            PageNumber = 1,
+            PageSize = 100
+        });
+        _items = res.Items.ToList();
+
+        // Хүлээгдэж буйн тоог тусад нь
+        var pending = await PropertyRepo.ListAsync(new PropertyFilter
+        {
+            OnlyPublished = false,
+            Status = 2,
+            PageNumber = 1,
+            PageSize = 1
+        });
+        _pendingCount = pending.Total;
+
+        _loading = false;
+    }
+
+    private async Task SelectTab(int? status)
+    {
+        _status = status;
+        await LoadAsync();
+    }
+
+    private async Task PublishAsync(int id)
+    {
+        _busy = true;
+        try
+        {
+            var r = await PropertyRepo.PublishAsync(id, _adminId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    private async Task UnpublishAsync(int id)
+    {
+        _busy = true;
+        try
+        {
+            var r = await PropertyRepo.UnpublishAsync(id, _adminId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    private async Task RejectAsync(int id)
+    {
+        _busy = true;
+        try
+        {
+            var r = await PropertyRepo.RejectAsync(id, _adminId, null);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    private string Img(int id) => $"https://picsum.photos/seed/prop{id * 100}/300/220";
+    private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+
+    private string StatusLabel(int s) => s switch
+    {
+        1 => "Ноорог",
+        2 => "Хүлээгдэж буй",
+        3 => "Нийтлэгдсэн",
+        4 => "Хаалт хүсэлт",
+        5 => "Хаагдсан",
+        6 => "Цуцлагдсан",
+        _ => "-"
+    };
+    private string StatusColor(int s) => s switch
+    {
+        3 => "#2c7a7b",
+        2 => "#dd6b20",
+        4 => "#3182ce",
+        5 => "#718096",
+        6 => "#e53e3e",
+        _ => "#a0aec0"
+    };
+}

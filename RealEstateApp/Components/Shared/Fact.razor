@@ -1,0 +1,14 @@
+﻿@using MudBlazor
+<div class="fact">
+    <MudIcon Icon="@Icon" Size="Size.Small" Class="fact-ic" />
+    <div>
+        <div class="fact-lbl">@Label</div>
+        <div class="fact-val">@Value</div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+}

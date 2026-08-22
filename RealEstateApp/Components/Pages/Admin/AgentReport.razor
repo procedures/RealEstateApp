@@ -1,0 +1,190 @@
+@page "/admin/report"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IDashboardRepository DashboardRepo
+<PageTitle>Агентын тайлан</PageTitle>
+
+<div class="rp">
+    <SiteHeader />
+
+    <div class="rp-container">
+        <div class="rp-top">
+            <div>
+                <h1 class="rp-h1">Агентын гүйцэтгэлийн тайлан</h1>
+                <p class="rp-sub">Хөрөнгө бүртгэсэн болон хаалт хийсэн үзүүлэлт (ихээс бага руу)</p>
+            </div>
+
+            <div class="rp-toggle">
+                <button class="rp-tbtn @(_metric == Metric.Property ? "active" : "")"
+                        @onclick="() => SetMetric(Metric.Property)">
+                    <MudIcon Icon="@Icons.Material.Filled.HomeWork" Size="Size.Small" /> Хөрөнгөөр
+                </button>
+                <button class="rp-tbtn @(_metric == Metric.Closure ? "active" : "")"
+                        @onclick="() => SetMetric(Metric.Closure)">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" /> Хаалтаар
+                </button>
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="rp-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_rows.Count == 0)
+        {
+            <div class="rp-empty">
+                <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Large" />
+                <p>Тайлан гаргах өгөгдөл алга байна.</p>
+            </div>
+        }
+        else
+        {
+            <!-- График -->
+            <div class="rp-card">
+                <div class="rp-card-h">
+                    @(_metric == Metric.Property ? "Хөрөнгө бүртгэсэн байдал" : "Хаалт хийсэн байдал")
+                </div>
+                <MudChart T="double"
+                          ChartType="ChartType.Bar"
+                          ChartSeries="@_series"
+                          XAxisLabels="@_labels"
+                          Width="100%" Height="380px"
+                          ChartOptions="@_options" />
+                <div class="rp-legend">
+                    <span class="rp-lg"><i class="rp-dot" style="background:#2c7a7b"></i> Хөрөнгө</span>
+                    <span class="rp-lg"><i class="rp-dot" style="background:#dd6b20"></i> Хаалт</span>
+                </div>
+            </div>
+
+            <!-- Жагсаалт -->
+            <div class="rp-card">
+                <div class="rp-card-h">Дэлгэрэнгүй жагсаалт</div>
+                <div class="rp-table-wrap">
+                    <table class="rp-table">
+                        <thead>
+                            <tr>
+                                <th class="rp-rank">#</th>
+                                <th>Агент</th>
+                                <th class="rp-num">Хөрөнгө</th>
+                                <th class="rp-num">Хаалт</th>
+                                <th class="rp-num">Борлуулалт</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var rank = 1;
+                            }
+                            @foreach (var a in _rows)
+                            {
+                                <tr>
+                                    <td class="rp-rank">
+                                        <span class="rp-badge @RankClass(rank)">@rank</span>
+                                    </td>
+                                    <td>
+                                        <div class="rp-agent">
+                                            @if (!string.IsNullOrEmpty(a.PhotoUrl))
+                                            {
+                                                <img src="@a.PhotoUrl" class="rp-ava" alt="" />
+                                            }
+                                            else
+                                            {
+                                                <span class="rp-ava rp-ava-ph">@Initial(a.FullName)</span>
+                                            }
+                                            <span>@a.FullName</span>
+                                        </div>
+                                    </td>
+                                    <td class="rp-num">@a.PropertyCount</td>
+                                    <td class="rp-num">@a.ClosureCount</td>
+                                    <td class="rp-num">@Money(a.SoldTotalAmount)</td>
+                                </tr>
+                                rank++;
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private enum Metric { Property, Closure }
+
+    private bool _loading = true;
+    private Metric _metric = Metric.Property;
+
+    private List<AgentLeaderboardRow> _all = new();
+    private List<AgentLeaderboardRow> _rows = new();
+
+    private List<ChartSeries<double>> _series = new();
+    private string[] _labels = Array.Empty<string>();
+
+    private readonly ChartOptions _options = new()
+    {
+        ChartPalette = new[] { "#2c7a7b", "#dd6b20" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _all = await DashboardRepo.GetAdminStatsAsync(20);
+        }
+        catch
+        {
+            _all = new();
+        }
+        Rebuild();
+        _loading = false;
+    }
+
+    private void SetMetric(Metric m)
+    {
+        _metric = m;
+        Rebuild();
+    }
+
+    private void Rebuild()
+    {
+        // Сонгосон үзүүлэлтээр ихээс бага руу эрэмбэлнэ
+        _rows = (_metric == Metric.Property
+                ? _all.OrderByDescending(x => x.PropertyCount).ThenByDescending(x => x.ClosureCount)
+                : _all.OrderByDescending(x => x.ClosureCount).ThenByDescending(x => x.PropertyCount))
+            .ToList();
+
+        _labels = _rows.Select(x => ShortLabel(x)).ToArray();
+
+        _series = new List<ChartSeries<double>>
+        {
+            new ChartSeries<double>
+            {
+                Name = "Хөрөнгө",
+                Data = _rows.Select(x => (double)x.PropertyCount).ToArray()
+            },
+            new ChartSeries<double>
+            {
+                Name = "Хаалт",
+                Data = _rows.Select(x => (double)x.ClosureCount).ToArray()
+            }
+        };
+    }
+
+    private static string RankClass(int rank) => rank switch
+    {
+        1 => "gold",
+        2 => "silver",
+        3 => "bronze",
+        _ => ""
+    };
+
+    private static string ShortLabel(AgentLeaderboardRow a) =>
+        string.IsNullOrWhiteSpace(a.LastName) ? a.FirstName : a.LastName;
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
+
+    private static string Money(decimal v) =>
+        v <= 0 ? "-" : v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+}

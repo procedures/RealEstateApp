@@ -1,0 +1,36 @@
+﻿@using MudBlazor
+@using RealEstateApp.Services
+@inject ISiteBrandService Brand
+
+<a href="@Href" class="logo @Size.ToString().ToLower() @Class">
+    <span class="logo-mark">
+        <MudIcon Icon="@Icon" />
+    </span>
+
+    <span class="logo-text">
+        <span class="logo-name">@(_name ?? "")</span>
+        @if (ShowSlogan && !string.IsNullOrWhiteSpace(_slogan))
+        {
+            <span class="logo-slogan">@_slogan</span>
+        }
+    </span>
+</a>
+
+@code {
+    public enum LogoSize { Small, Normal, Large }
+
+    [Parameter] public string Href { get; set; } = "/";
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = Icons.Material.Filled.Apartment;
+    [Parameter] public bool ShowSlogan { get; set; }
+    [Parameter] public LogoSize Size { get; set; } = LogoSize.Normal;
+
+    private string? _name;
+    private string? _slogan;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _name = await Brand.GetCompanyNameAsync();
+        if (ShowSlogan) _slogan = await Brand.GetSloganAsync();
+    }
+}

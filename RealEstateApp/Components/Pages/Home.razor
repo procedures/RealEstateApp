@@ -1,0 +1,213 @@
+﻿@page "/"
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IPropertyRepository PropertyRepo
+@inject ILookupRepository LookupRepo
+<PageTitle>Үл хөдлөх хөрөнгө</PageTitle>
+
+<div class="lp">
+    <SiteHeader />
+
+    <div class="lp-container">
+        <!-- HERO -->
+        <section class="hero">
+            <div class="hero-left">
+                <div class="hero-badge"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> Онцлох зарууд</div>
+                <h1 class="hero-h1">Хотын зүрхэнд <span>төгс орон сууцаа</span> олоорой</h1>
+                <p class="hero-sub">Итгэмжлэгдсэн агентуудын баталгаажсан зарын дундаас өөрт тохирох үл хөдлөх хөрөнгөө хялбар хайж олоорой.</p>
+
+                <div class="search-card">
+                    <div class="sc-row">
+                        <div class="fcell">
+                            <MudTextField T="string" @bind-Value="_f.Search" Label="Хаяг / хотхон"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                                          Clearable="true" />
+                        </div>
+                    </div>
+                    <div class="sc-row two">
+                        <div class="fcell">
+                            <MudSelect T="int?" @bind-Value="_f.PropertyTypeId" Label="Хөрөнгийн төрөл"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true">
+                                @foreach (var t in _lookups.PropertyTypes)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)t.PropertyTypeId)">@t.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </div>
+                        <div class="fcell">
+                            <MudSelect T="int" @bind-Value="_priceRange" Label="Үнийн муж"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                                <MudSelectItem T="int" Value="0">Бүгд</MudSelectItem>
+                                <MudSelectItem T="int" Value="1">100 сая хүртэл</MudSelectItem>
+                                <MudSelectItem T="int" Value="2">100–200 сая</MudSelectItem>
+                                <MudSelectItem T="int" Value="3">200–300 сая</MudSelectItem>
+                                <MudSelectItem T="int" Value="4">300–500 сая</MudSelectItem>
+                                <MudSelectItem T="int" Value="5">500 саяас дээш</MudSelectItem>
+                            </MudSelect>
+                        </div>
+                    </div>
+                    <div class="sc-row two">
+                        <div class="fcell">
+                            <MudSelect T="int?" @bind-Value="_f.RoomCount" Label="Өрөөний тоо"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true">
+                                @for (int i = 1; i <= 5; i++)
+                                {
+                                    var n = i;
+                                    <MudSelectItem T="int?" Value="@((int?)n)">@n өрөө</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </div>
+                        <div class="fcell">
+                            <MudSelect T="int?" @bind-Value="_f.DistrictId" Label="Дүүрэг"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true">
+                                @foreach (var d in _lookups.Districts)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)d.DistrictId)">@d.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </div>
+                    </div>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Search" OnClick="ApplyFilter" Class="sc-btn">
+                        Зар хайх
+                    </MudButton>
+                    <div class="sc-reset"><MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ResetFilter">Цэвэрлэх</MudButton></div>
+                </div>
+
+                <div class="stats">
+                    <div class="stat"><div class="stat-num">@_total<span>+</span></div><div class="stat-lbl">Нийтлэгдсэн зар</div></div>
+                    <div class="stat"><div class="stat-num">156<span>+</span></div><div class="stat-lbl">Баталгаат агент</div></div>
+                    <div class="stat"><div class="stat-num">98<span>%</span></div><div class="stat-lbl">Сэтгэл ханамж</div></div>
+                </div>
+            </div>
+
+            <div class="hero-right">
+                @if (_hero is not null)
+                {
+                    <div class="feat-wrap">
+                        <div class="feat-img" style="background-image:url('@Img(_hero.PropertyId, 900, 700)')">
+                            <div class="feat-price">
+                                <div class="fp-amount">@Money(_hero.Price)</div>
+                                <div class="fp-tag">ОНЦЛОХ</div>
+                            </div>
+                        </div>
+                        <div class="feat-thumb" style="background-image:url('@Img(_hero.PropertyId + 1000, 400, 300)')"></div>
+                        <div class="agent-card">
+                            <div class="agent-ava" style="background-image:url('https://i.pravatar.cc/100?u=@_hero.PropertyId')"></div>
+                            <div>
+                                <div class="agent-name">@_hero.AgentName</div>
+                                <div class="agent-role">Хариуцсан агент</div>
+                                <div class="agent-rate"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> 4.9 (127 сэтгэгдэл)</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        @if (_loading)
+        {
+            <div class="lp-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-8">
+                Тохирох зар олдсонгүй. Шүүлтүүрээ өөрчилж эсвэл цэвэрлэж үзнэ үү.
+            </MudAlert>
+        }
+        else
+        {
+            <h2 class="section-title">
+                Шинэ зарууд
+                <a href="/properties" class="section-more">Бүгдийг харах →</a>
+            </h2>
+            <div class="grid">
+                @foreach (var it in _grid)
+                {
+                    <div class="prop-card">
+                        <div class="prop-img" style="background-image:url('@Img(it.PropertyId, 500, 340)')">
+                            <span class="prop-badge">@it.TransactionTypeName</span>
+                        </div>
+                        <div class="prop-body">
+                            <div class="prop-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                            <div class="loc sm"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.DistrictName</div>
+                            <div class="prop-meta">
+                                <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0)</span>
+                                <span><MudIcon Icon="@Icons.Material.Filled.Stairs" Size="Size.Small" /> @(it.FloorNumber ?? 0)/@(it.BuildingFloors ?? 0)</span>
+                                <span><MudIcon Icon="@Icons.Material.Filled.SquareFoot" Size="Size.Small" /> @it.AreaSize.ToString("0.#") м²</span>
+                            </div>
+                            <div class="prop-footer">
+                                <span class="prop-price">@Money(it.Price)</span>
+                                <a href="/property/@it.PropertyId" class="view-btn">ҮЗЭХ</a>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+
+        }
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private LookupData _lookups = new();
+    private PropertyFilter _f = new() { OnlyPublished = true, PageSize = 12 };
+    private int _priceRange = 0;
+    private int _total;
+
+    private List<PropertyListItem> _items = new();
+    private PropertyListItem? _hero;
+    private List<PropertyListItem> _grid = new();
+
+    private static readonly (decimal? Min, decimal? Max)[] Ranges =
+    {
+        (null, null),
+        (null, 100_000_000m),
+        (100_000_000m, 200_000_000m),
+        (200_000_000m, 300_000_000m),
+        (300_000_000m, 500_000_000m),
+        (500_000_000m, null),
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _lookups = await LookupRepo.GetAllAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _f.MinPrice = Ranges[_priceRange].Min;
+        _f.MaxPrice = Ranges[_priceRange].Max;
+
+        var res = await PropertyRepo.ListAsync(_f);
+        _items = res.Items.ToList();
+        _total = res.Total;
+
+        _hero = _items.FirstOrDefault();
+        _grid = _items.Skip(1).ToList();
+        _loading = false;
+    }
+
+    private async Task ApplyFilter()
+    {
+        _f.PageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task ResetFilter()
+    {
+        _f = new PropertyFilter { OnlyPublished = true, PageSize = 12 };
+        _priceRange = 0;
+        await LoadAsync();
+    }
+
+    private string Img(int id, int w, int h) => $"https://picsum.photos/seed/prop{id}/{w}/{h}";
+    private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+}

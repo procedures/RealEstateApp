@@ -1,0 +1,105 @@
+﻿@page "/login"
+@attribute [ExcludeFromInteractiveRouting]
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.AspNetCore.Identity
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IAgentRepository AgentRepo
+@inject IPasswordHasher<AgentAccount> Hasher
+@inject NavigationManager Nav
+@layout EmptyAuthLayout
+<PageTitle>Нэвтрэх</PageTitle>
+
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div style="display:flex;justify-content:center;margin-bottom:18px;">
+            <SiteLogo ShowSlogan="true" />
+        </div>
+        <h1 class="auth-h">Агентын нэвтрэлт</h1>
+        <p class="auth-sub">Хөрөнгө бүртгэхийн тулд нэвтэрнэ үү</p>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="auth-error">@_error</div>
+        }
+        <div class="auth-form">
+            <EditForm Model="Input" method="post" OnValidSubmit="DoLoginAsync" FormName="loginForm" class="auth-form">
+                <DataAnnotationsValidator />
+
+                <label class="auth-label">И-мэйл</label>
+                <InputText @bind-Value="Input.Email" class="auth-input" placeholder="agent@realestate.mn" />
+                <ValidationMessage For="() => Input.Email" class="auth-vmsg" />
+
+                <label class="auth-label">Нууц үг</label>
+                <InputText @bind-Value="Input.Password" type="password" class="auth-input" placeholder="••••••••" />
+                <ValidationMessage For="() => Input.Password" class="auth-vmsg" />
+
+                <button type="submit" class="auth-btn">Нэвтрэх</button>
+            </EditForm>
+        </div>
+        <div class="auth-foot">
+            Бүртгэл үүсгэх шаардлагатай юу? Админд хандана уу.
+        </div>
+        @* <div class="auth-foot">
+            Бүртгэлгүй юу? <a href="/register">Шинээр бүртгүүлэх</a>
+        </div> *@
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm] private LoginInput Input { get; set; } = new();
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+
+    private string? _error;
+
+    private async Task DoLoginAsync()
+    {
+        _error = null;
+
+        var agent = await AgentRepo.GetForLoginAsync(Input.Email.Trim());
+        if (agent is null)
+        {
+            _error = "И-мэйл эсвэл нууц үг буруу байна.";
+            return;
+        }
+
+        var verify = Hasher.VerifyHashedPassword(agent, agent.PasswordHash, Input.Password);
+        if (verify == PasswordVerificationResult.Failed)
+        {
+            _error = "И-мэйл эсвэл нууц үг буруу байна.";
+            return;
+        }
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, agent.AgentId.ToString()),
+            new(ClaimTypes.Name, agent.FullName),
+            new(ClaimTypes.Email, agent.Email),
+            new(ClaimTypes.Role, agent.Role),
+        };
+        if (agent.BranchId.HasValue)
+            claims.Add(new Claim("BranchId", agent.BranchId.Value.ToString()));
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            new ClaimsPrincipal(identity),
+            new AuthenticationProperties { IsPersistent = true });
+
+        Nav.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : "/" + ReturnUrl);
+    }
+
+    public class LoginInput
+    {
+        [Required(ErrorMessage = "И-мэйлээ оруулна уу")]
+        [EmailAddress(ErrorMessage = "И-мэйл буруу форматтай байна")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Нууц үгээ оруулна уу")]
+        public string Password { get; set; } = "";
+    }
+}

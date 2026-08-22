@@ -1,0 +1,192 @@
+.rp {
+    min-height: 100vh;
+    background: #f7fafc;
+}
+
+.rp-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+
+.rp-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.rp-h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+}
+
+.rp-sub {
+    color: #718096;
+    margin: 4px 0 0;
+    font-size: .95rem;
+}
+
+/* Toggle */
+.rp-toggle {
+    display: inline-flex;
+    background: #edf2f7;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.rp-tbtn {
+    border: none;
+    background: transparent;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .9rem;
+    font-weight: 600;
+    color: #4a5568;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all .15s;
+}
+
+.rp-tbtn:hover { color: #2d3748; }
+
+.rp-tbtn.active {
+    background: #fff;
+    color: #2c7a7b;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+
+/* Cards */
+.rp-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.rp-card-h {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 14px;
+    font-size: 1.05rem;
+}
+
+.rp-legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.rp-lg {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .85rem;
+    color: #4a5568;
+}
+
+.rp-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+/* Table */
+.rp-table-wrap { overflow-x: auto; }
+
+.rp-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.rp-table th {
+    text-align: left;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #a0aec0;
+    padding: 10px 12px;
+    border-bottom: 2px solid #edf2f7;
+}
+
+.rp-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #2d3748;
+}
+
+.rp-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.rp-rank { width: 48px; text-align: center; }
+
+.rp-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #edf2f7;
+    color: #4a5568;
+    font-weight: 700;
+    font-size: .85rem;
+}
+
+.rp-badge.gold   { background: #f6e05e; color: #744210; }
+.rp-badge.silver { background: #e2e8f0; color: #2d3748; }
+.rp-badge.bronze { background: #f6ad55; color: #7b341e; }
+
+.rp-agent {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rp-ava {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+}
+
+.rp-ava-ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #2c7a7b;
+    color: #fff;
+    font-weight: 700;
+    font-size: .9rem;
+}
+
+/* States */
+.rp-center, .rp-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    color: #a0aec0;
+}
+
+@media (max-width: 640px) {
+    .rp-top { align-items: stretch; }
+    .rp-toggle { width: 100%; }
+    .rp-tbtn { flex: 1; justify-content: center; }
+}

@@ -1,0 +1,340 @@
+﻿@page "/admin/viewings"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IViewingRepository ViewingRepo
+@inject ISnackbar Snackbar
+<PageTitle>Үзлэгийн хүсэлт — Админ</PageTitle>
+
+<div class="av">
+    <SiteHeader />
+
+    <div class="av-container">
+        <div class="av-top">
+            <h1 class="av-h1">Үзлэгийн хүсэлт</h1>
+            <p class="av-sub">Бүх агентын үзлэгийн хүсэлтийг эндээс удирдана</p>
+        </div>
+
+        @* ===================== Статистик ===================== *@
+        <div class="av-stats">
+            <button class="stat @(_status == 1 ? "on new" : "new")" @onclick="() => SetStatusAsync(1)">
+                <span class="stat-num">@_stats.NewCount</span>
+                <span class="stat-lbl">Шинэ</span>
+            </button>
+            <button class="stat @(_status == 2 ? "on" : "")" @onclick="() => SetStatusAsync(2)">
+                <span class="stat-num">@_stats.ConfirmedCount</span>
+                <span class="stat-lbl">Баталгаажсан</span>
+            </button>
+            <button class="stat @(_status == 3 ? "on" : "")" @onclick="() => SetStatusAsync(3)">
+                <span class="stat-num">@_stats.DoneCount</span>
+                <span class="stat-lbl">Үзсэн</span>
+            </button>
+            <button class="stat @(_status == 4 ? "on" : "")" @onclick="() => SetStatusAsync(4)">
+                <span class="stat-num">@_stats.CancelledCount</span>
+                <span class="stat-lbl">Цуцлагдсан</span>
+            </button>
+            <button class="stat @(_status is null ? "on" : "")" @onclick="() => SetStatusAsync(null)">
+                <span class="stat-num">@_stats.TotalCount</span>
+                <span class="stat-lbl">Нийт</span>
+            </button>
+            <div class="stat today">
+                <span class="stat-num">@_stats.TodayCount</span>
+                <span class="stat-lbl">Өнөөдөр</span>
+            </div>
+        </div>
+
+        @* ===================== Шүүлтүүр ===================== *@
+        <div class="av-filter">
+            <MudSelect T="int?" Value="_agentId" ValueChanged="OnAgentChangedAsync" Label="Агент"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true" Class="av-fsel">
+                @foreach (var a in _agents)
+                {
+                    <MudSelectItem T="int?" Value="@((int?)a.AgentId)">
+                        @a.FullName (@a.TotalCount)@(a.NewCount > 0 ? $" · {a.NewCount} шинэ" : "")
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudDatePicker @bind-Date="_fromDate" Label="Эхлэх огноо"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Class="av-fdate" />
+            <MudDatePicker @bind-Date="_toDate" Label="Дуусах огноо"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Class="av-fdate" />
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.FilterAlt" OnClick="ApplyAsync">Шүүх</MudButton>
+
+            @if (_agentId.HasValue || _fromDate.HasValue || _toDate.HasValue)
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="ResetAsync">Цэвэрлэх</MudButton>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <div class="av-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="av-empty">
+                <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Large" />
+                <p>Тохирох хүсэлт байхгүй байна.</p>
+            </div>
+        }
+        else
+        {
+            <div class="av-count">Нийт <b>@_total</b> хүсэлт</div>
+
+            <div class="av-list">
+                @foreach (var v in _items)
+                {
+                    var item = v;
+                    <div class="avc @(item.Status == 1 ? "new" : "")">
+                        <div class="avc-thumb" style="background-image:url('@Img(item)')"></div>
+
+                        <div class="avc-body">
+                            <div class="avc-head">
+                                <div>
+                                    <a href="/property/@item.PropertyId" class="avc-prop" target="_blank">
+                                        @(item.ComplexName ?? "Хөрөнгө") №@item.PropertyId
+                                    </a>
+                                    <div class="avc-addr">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @item.Address
+                                    </div>
+                                </div>
+                                <span class="avc-status" style="background:@StatusColor(item.Status)">
+                                    @StatusLabel(item.Status)
+                                </span>
+                            </div>
+
+                            <div class="avc-mid">
+                                <div class="avc-client">
+                                    <div class="avc-ava">@Initial(item.FullName)</div>
+                                    <div>
+                                        <div class="avc-name">@item.FullName</div>
+                                        <div class="avc-contacts">
+                                            <a href="tel:@item.Phone" class="avc-link">
+                                                <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" /> @item.Phone
+                                            </a>
+                                            @if (!string.IsNullOrWhiteSpace(item.Email))
+                                            {
+                                                <a href="mailto:@item.Email" class="avc-link">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" /> @item.Email
+                                                </a>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="avc-agent">
+                                    <span class="avc-alabel">Хариуцсан агент</span>
+                                    <span class="avc-aname">
+                                        <MudIcon Icon="@Icons.Material.Filled.Badge" Size="Size.Small" /> @item.AgentName
+                                    </span>
+                                </div>
+
+                                <div class="avc-when">
+                                    @if (item.PreferredDate.HasValue)
+                                    {
+                                        <div class="avc-date">
+                                            <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" />
+                                            @item.PreferredDate.Value.ToString("MM-dd")
+                                        </div>
+                                    }
+                                    <div class="avc-created">@item.CreatedAt.ToString("MM-dd HH:mm")</div>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(item.Note))
+                            {
+                                <div class="avc-note">„@item.Note"</div>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(item.AgentNote))
+                            {
+                                <div class="avc-anote">
+                                    <MudIcon Icon="@Icons.Material.Filled.StickyNote2" Size="Size.Small" />
+                                    @item.AgentNote
+                                    @if (!string.IsNullOrWhiteSpace(item.HandledByName))
+                                    {
+                                        <span class="avc-handler">— @item.HandledByName</span>
+                                    }
+                                </div>
+                            }
+
+                            <div class="avc-foot">
+                                <div class="avc-actions">
+                                    @if (_open == item.ViewingId)
+                                    {
+                                        <MudTextField T="string" @bind-Value="_note" Placeholder="Тэмдэглэл (заавал биш)"
+                                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="avc-notein" />
+                                        <button class="av-btn" disabled="@_busy" @onclick="() => SetStatusChangeAsync(item, 2)">Баталгаажуулах</button>
+                                        <button class="av-btn ok" disabled="@_busy" @onclick="() => SetStatusChangeAsync(item, 3)">Үзсэн</button>
+                                        <button class="av-btn danger" disabled="@_busy" @onclick="() => SetStatusChangeAsync(item, 4)">Цуцлах</button>
+                                        <button class="av-btn outline" disabled="@_busy" @onclick="() => _open = null">Хаах</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="av-btn outline" disabled="@_busy" @onclick="() => Open(item)">
+                                            Шийдвэрлэх
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="av-pager">
+                    <button class="pg-btn" disabled="@(_pageNumber <= 1)" @onclick="() => GoToPageAsync(_pageNumber - 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" />
+                    </button>
+                    @for (int i = 1; i <= TotalPages; i++)
+                    {
+                        var pnum = i;
+                        <button class="pg-btn @(pnum == _pageNumber ? "on" : "")"
+                                @onclick="() => GoToPageAsync(pnum)">
+                            @pnum
+                        </button>
+                    }
+                    <button class="pg-btn" disabled="@(_pageNumber >= TotalPages)" @onclick="() => GoToPageAsync(_pageNumber + 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private bool _loading = true, _busy;
+    private int _adminId;
+    private int? _status = 1;
+    private int? _agentId;
+    private DateTime? _fromDate, _toDate;
+    private int? _open;
+    private string? _note;
+
+    private ViewingStats _stats = new();
+    private List<ViewingAgentOption> _agents = new();
+    private List<ViewingItem> _items = new();
+    private int _total, _pageNumber = 1;
+    private const int PageSize = 20;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _adminId = auth.User.GetAgentId();
+
+        _agents = await ViewingRepo.AgentOptionsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _open = null;
+        StateHasChanged();
+
+        _stats = await ViewingRepo.GetStatsAsync();
+
+        var res = await ViewingRepo.ListAdminAsync(_agentId, _status, _fromDate, _toDate, _pageNumber, PageSize);
+        _items = res.Items.ToList();
+        _total = res.Total;
+
+        _loading = false;
+    }
+
+    private async Task SetStatusAsync(int? status)
+    {
+        _status = status;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnAgentChangedAsync(int? agentId)
+    {
+        _agentId = agentId;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task ApplyAsync()
+    {
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task ResetAsync()
+    {
+        _agentId = null;
+        _fromDate = null;
+        _toDate = null;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        _pageNumber = page;
+        await LoadAsync();
+    }
+
+    private void Open(ViewingItem v)
+    {
+        _open = v.ViewingId;
+        _note = v.AgentNote;
+    }
+
+    private async Task SetStatusChangeAsync(ViewingItem v, int status)
+    {
+        _busy = true;
+        try
+        {
+            var r = await ViewingRepo.SetStatusAsync(v.ViewingId, status, _note, _adminId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok)
+            {
+                _note = null;
+                _agents = await ViewingRepo.AgentOptionsAsync();
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _open = null; }
+    }
+
+    private int TotalPages => (int)Math.Ceiling(_total / (double)PageSize);
+
+    private string Img(ViewingItem v) =>
+        string.IsNullOrEmpty(v.MainImagePath)
+            ? $"https://picsum.photos/seed/prop{v.PropertyId}/300/220"
+            : v.MainImagePath;
+
+    private static string Initial(string n) =>
+        string.IsNullOrWhiteSpace(n) ? "?" : n.Trim()[0].ToString().ToUpper();
+
+    private static string StatusLabel(int s) => s switch
+    {
+        1 => "Шинэ",
+        2 => "Баталгаажсан",
+        3 => "Үзсэн",
+        4 => "Цуцлагдсан",
+        _ => "-"
+    };
+
+    private static string StatusColor(int s) => s switch
+    {
+        1 => "#e53e3e",
+        2 => "#3182ce",
+        3 => "#2c7a7b",
+        4 => "#a0aec0",
+        _ => "#a0aec0"
+    };
+}

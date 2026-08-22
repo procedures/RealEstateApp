@@ -1,0 +1,393 @@
+﻿@page "/properties"
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IPropertyRepository PropertyRepo
+@inject ILookupRepository LookupRepo
+@inject NavigationManager Nav
+<PageTitle>Бүх зарууд</PageTitle>
+
+<div class="pl">
+    <SiteHeader />
+
+    <div class="pl-crumbbar">
+        <div class="pl-container">
+            <a href="/">Нүүр</a> <span>/</span> <b>Бүх зарууд</b>
+        </div>
+    </div>
+
+    <div class="pl-container pl-body">
+        <!-- ЗҮҮН: шүүлтүүр -->
+        <aside class="pl-side">
+            <div class="fl-card">
+                <div class="fl-head">
+                    <h3 class="fl-h">Шүүлтүүр</h3>
+                    @if (HasAnyFilter)
+                    {
+                        <button class="fl-clear" @onclick="ResetAsync">Цэвэрлэх</button>
+                    }
+                </div>
+
+                <div class="fl-block">
+                    <MudTextField T="string" @bind-Value="_f.Search" Label="Хайх"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Placeholder="Хаяг, хотхон…" Clearable="true"
+                                  OnKeyUp="OnSearchKey" />
+                </div>
+
+                <div class="fl-block">
+                    <MudSelect T="int?" @bind-Value="_f.TransactionTypeId" Label="Төрөл"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true">
+                        @foreach (var t in _lookups.TransactionTypes)
+                        { <MudSelectItem T="int?" Value="@((int?)t.TransactionTypeId)">@t.Name</MudSelectItem> }
+                    </MudSelect>
+                </div>
+
+                <div class="fl-block">
+                    <MudSelect T="int?" @bind-Value="_f.PropertyTypeId" Label="Хөрөнгийн төрөл"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true">
+                        @foreach (var t in _lookups.PropertyTypes)
+                        { <MudSelectItem T="int?" Value="@((int?)t.PropertyTypeId)">@t.Name</MudSelectItem> }
+                    </MudSelect>
+                </div>
+
+                <div class="fl-block">
+                    <MudSelect T="int?" @bind-Value="_f.DistrictId" Label="Дүүрэг"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true">
+                        @foreach (var d in _lookups.Districts)
+                        { <MudSelectItem T="int?" Value="@((int?)d.DistrictId)">@d.Name</MudSelectItem> }
+                    </MudSelect>
+                </div>
+
+                <div class="fl-block">
+                    <div class="fl-lbl">Өрөөний тоо</div>
+                    <div class="fl-chips">
+                        @foreach (var n in RoomOptions)
+                        {
+                            var room = n;
+                            <button class="fl-chip @(_f.RoomCount == room ? "on" : "")"
+                                    @onclick="() => ToggleRoom(room)">
+                                @(room is null ? "Бүгд" : room.ToString())
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="fl-block">
+                    <div class="fl-lbl">Үнэ (сая ₮)</div>
+                    <div class="fl-two">
+                        <MudNumericField T="decimal?" @bind-Value="_minPriceM" Placeholder="Доод"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                        <MudNumericField T="decimal?" @bind-Value="_maxPriceM" Placeholder="Дээд"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                    </div>
+                </div>
+
+                <div class="fl-block">
+                    <div class="fl-lbl">Талбай (м²)</div>
+                    <div class="fl-two">
+                        <MudNumericField T="decimal?" @bind-Value="_f.MinArea" Placeholder="Доод"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                        <MudNumericField T="decimal?" @bind-Value="_f.MaxArea" Placeholder="Дээд"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                    </div>
+                </div>
+
+                <div class="fl-block">
+                    <MudCheckBox T="bool" @bind-Value="_garageOnly" Label="Гаражтай" Color="Color.Primary" Dense="true" />
+                </div>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.FilterAlt" OnClick="ApplyAsync" Class="fl-btn">
+                    Шүүх
+                </MudButton>
+            </div>
+        </aside>
+
+        <!-- БАРУУН: үр дүн -->
+        <main class="pl-main">
+            <div class="pl-toolbar">
+                <div class="pl-count">
+                    @if (!_loading)
+                    {
+                        <span>Нийт <b>@_total</b> зар</span>
+                        @if (_total > 0)
+                        {
+                            <span class="pl-range">· @FirstIndex–@LastIndex харуулж байна</span>
+                        }
+                    }
+                </div>
+
+                <div class="pl-tools">
+                    <MudSelect T="string" Value="_sortBy" ValueChanged="OnSortChangedAsync" Label="Эрэмбэ" Dense="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Class="pl-sort">
+                        <MudSelectItem T="string" Value="@("newest")">Шинэ нь эхэндээ</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("oldest")">Хуучин нь эхэндээ</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("price_asc")">Үнэ: багаас их</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("price_desc")">Үнэ: ихээс бага</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("sqm_asc")">1м² үнэ: багаас их</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("sqm_desc")">1м² үнэ: ихээс бага</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("area_desc")">Талбай: ихээс бага</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("area_asc")">Талбай: багаас их</MudSelectItem>
+                    </MudSelect>
+                    <div class="pl-viewtoggle">
+                        <button class="pl-vbtn @(_grid ? "on" : "")" title="Хүснэгт" @onclick="() => _grid = true">
+                            <MudIcon Icon="@Icons.Material.Filled.GridView" Size="Size.Small" />
+                        </button>
+                        <button class="pl-vbtn @(!_grid ? "on" : "")" title="Жагсаалт" @onclick="() => _grid = false">
+                            <MudIcon Icon="@Icons.Material.Filled.ViewList" Size="Size.Small" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="pl-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+            }
+            else if (_items.Count == 0)
+            {
+                <div class="pl-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" />
+                    <p>Таны шүүлтэд тохирох зар олдсонгүй.</p>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ResetAsync">
+                        Шүүлтүүр цэвэрлэх
+                    </MudButton>
+                </div>
+            }
+            else if (_grid)
+            {
+                <div class="pl-grid">
+                    @foreach (var it in _items)
+                    {
+                        <a href="/property/@it.PropertyId" class="gcard">
+                            <div class="gcard-img" style="background-image:url('@Img(it)')">
+                                <span class="gcard-badge">@it.TransactionTypeName</span>
+                                @if (it.ImageCount > 0)
+                                {
+                                    <span class="gcard-imgs"><MudIcon Icon="@Icons.Material.Filled.PhotoLibrary" Size="Size.Small" /> @it.ImageCount</span>
+                                }
+                            </div>
+                            <div class="gcard-body">
+                                <div class="gcard-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                                <div class="gcard-loc"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.DistrictName</div>
+                                <div class="gcard-meta">
+                                    <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0)</span>
+                                    <span><MudIcon Icon="@Icons.Material.Filled.SquareFoot" Size="Size.Small" /> @it.AreaSize.ToString("0.#") м²</span>
+                                    @if (it.HasGarage)
+                                    {
+                                        <span><MudIcon Icon="@Icons.Material.Filled.Garage" Size="Size.Small" /></span>
+                                    }
+                                </div>
+                                <div class="gcard-foot">
+                                    <span class="gcard-price">@Money(it.Price)</span>
+                                    <span class="gcard-sqm">@(it.PricePerSqm.HasValue ? Money(it.PricePerSqm.Value) + "/м²" : "")</span>
+                                </div>
+                            </div>
+                        </a>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="pl-rows">
+                    @foreach (var it in _items)
+                    {
+                        <a href="/property/@it.PropertyId" class="rcard">
+                            <div class="rcard-img" style="background-image:url('@Img(it)')">
+                                @if (it.ImageCount > 0)
+                                {
+                                    <span class="gcard-imgs"><MudIcon Icon="@Icons.Material.Filled.PhotoLibrary" Size="Size.Small" /> @it.ImageCount</span>
+                                }
+                            </div>
+                            <div class="rcard-body">
+                                <div class="rcard-top">
+                                    <div>
+                                        <div class="gcard-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                                        <div class="rcard-addr"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.Address</div>
+                                    </div>
+                                    <span class="gcard-badge static">@it.TransactionTypeName</span>
+                                </div>
+                                <div class="gcard-meta">
+                                    <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0) өрөө</span>
+                                    <span><MudIcon Icon="@Icons.Material.Filled.SquareFoot" Size="Size.Small" /> @it.AreaSize.ToString("0.#") м²</span>
+                                    <span><MudIcon Icon="@Icons.Material.Filled.Stairs" Size="Size.Small" /> @(it.FloorNumber?.ToString() ?? "-")/@(it.BuildingFloors?.ToString() ?? "-")</span>
+                                    @if (it.HasGarage)
+                                    {
+                                        <span><MudIcon Icon="@Icons.Material.Filled.Garage" Size="Size.Small" /> Гараж</span>
+                                    }
+                                </div>
+                                <div class="rcard-foot">
+                                    <span class="gcard-price">@Money(it.Price)</span>
+                                    <span class="gcard-sqm">@(it.PricePerSqm.HasValue ? Money(it.PricePerSqm.Value) + "/м²" : "")</span>
+                                </div>
+                            </div>
+                        </a>
+                    }
+                </div>
+            }
+
+            @if (!_loading && TotalPages > 1)
+            {
+                <div class="pl-pager">
+                    <button class="pg-btn" disabled="@(_f.PageNumber <= 1)" @onclick="() => GoToPageAsync(_f.PageNumber - 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" />
+                    </button>
+
+                    @foreach (var pg in PageNumbers)
+                    {
+                        var pnum = pg;
+                        @if (pnum == -1)
+                        {
+                            <span class="pg-dots">…</span>
+                        }
+                        else
+                        {
+                            <button class="pg-btn @(pnum == _f.PageNumber ? "on" : "")"
+                                    @onclick="() => GoToPageAsync(pnum)">
+                                @pnum
+                            </button>
+                        }
+                    }
+
+                    <button class="pg-btn" disabled="@(_f.PageNumber >= TotalPages)" @onclick="() => GoToPageAsync(_f.PageNumber + 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                    </button>
+                </div>
+            }
+        </main>
+    </div>
+</div>
+
+@code {
+    private static readonly int?[] RoomOptions = { null, 1, 2, 3, 4, 5 };
+
+    private bool _loading = true;
+    private bool _grid = true;
+    private LookupData _lookups = new();
+    private PropertyFilter _f = new() { OnlyPublished = true, PageSize = 12 };
+    private List<PropertyListItem> _items = new();
+    private int _total;
+
+    // Сая төгрөгөөр оруулах туслах талбарууд
+    private decimal? _minPriceM;
+    private decimal? _maxPriceM;
+    private bool _garageOnly;
+
+    private string _sortBy = "newest";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _lookups = await LookupRepo.GetAllAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        _f.MinPrice = _minPriceM.HasValue ? _minPriceM * 1_000_000 : null;
+        _f.MaxPrice = _maxPriceM.HasValue ? _maxPriceM * 1_000_000 : null;
+        _f.HasGarage = _garageOnly ? true : null;
+        _f.SortBy = _sortBy;
+
+        var res = await PropertyRepo.ListAsync(_f);
+        _items = res.Items.ToList();
+        _total = res.Total;
+
+        _loading = false;
+    }
+
+    private async Task ApplyAsync()
+    {
+        _f.PageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task ResetAsync()
+    {
+        _f = new PropertyFilter { OnlyPublished = true, PageSize = 12 };
+        _minPriceM = null;
+        _maxPriceM = null;
+        _garageOnly = false;
+        _sortBy = "newest";
+        await LoadAsync();
+    }
+
+    private async Task ToggleRoom(int? room)
+    {
+        _f.RoomCount = room;
+        _f.PageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ApplyAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        _f.PageNumber = page;
+        await LoadAsync();
+    }
+
+    // Эрэмбэ солиход шууд дахин ачаална
+    // private string SortBy
+    // {
+    //     get => _sortBy;
+    //     set { _sortBy = value; _ = ApplyAsync(); }
+    // }
+    private async Task OnSortChangedAsync(string value)
+    {
+        _sortBy = value;
+        _f.PageNumber = 1;
+        await LoadAsync();
+    }
+
+    private int TotalPages => _f.PageSize > 0 ? (int)Math.Ceiling(_total / (double)_f.PageSize) : 1;
+    private int FirstIndex => _total == 0 ? 0 : (_f.PageNumber - 1) * _f.PageSize + 1;
+    private int LastIndex => Math.Min(_f.PageNumber * _f.PageSize, _total);
+
+    private bool HasAnyFilter =>
+        _f.DistrictId.HasValue || _f.PropertyTypeId.HasValue || _f.TransactionTypeId.HasValue
+        || _f.RoomCount.HasValue || _minPriceM.HasValue || _maxPriceM.HasValue
+        || _f.MinArea.HasValue || _f.MaxArea.HasValue || _garageOnly
+        || !string.IsNullOrWhiteSpace(_f.Search);
+
+    // Хуудасны дугаарууд (олон бол … хэлбэрээр товчилно)
+    private IEnumerable<int> PageNumbers
+    {
+        get
+        {
+            var total = TotalPages;
+            var cur = _f.PageNumber;
+
+            if (total <= 7)
+            {
+                for (int i = 1; i <= total; i++) yield return i;
+                yield break;
+            }
+
+            yield return 1;
+            if (cur > 3) yield return -1;
+
+            var start = Math.Max(2, cur - 1);
+            var end = Math.Min(total - 1, cur + 1);
+            for (int i = start; i <= end; i++) yield return i;
+
+            if (cur < total - 2) yield return -1;
+            yield return total;
+        }
+    }
+
+    private string Img(PropertyListItem it) =>
+        string.IsNullOrEmpty(it.MainImagePath)
+            ? $"https://picsum.photos/seed/prop{it.PropertyId}/500/340"
+            : it.MainImagePath;
+
+    private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+}

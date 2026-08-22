@@ -1,0 +1,181 @@
+﻿@page "/agents"
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IAgentRepository AgentRepo
+@inject ILookupRepository LookupRepo
+<PageTitle>Агентууд</PageTitle>
+
+<div class="ags">
+    <SiteHeader />
+
+    <div class="ags-hero">
+        <div class="ags-container">
+            <h1 class="ags-h1">Манай агентууд</h1>
+            <p class="ags-sub">Итгэмжлэгдсэн мэргэжилтнүүдээс өөрт тохирохыг нь сонгоно уу</p>
+        </div>
+    </div>
+
+    <div class="ags-container">
+        <div class="ags-toolbar">
+            <div class="ags-tools">
+                <MudTextField T="string" @bind-Value="_search" Label="Агент хайх"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Clearable="true" OnKeyUp="OnSearchKey" Class="ags-search" />
+
+                <MudSelect T="int?" Value="_branchId" ValueChanged="OnBranchChangedAsync" Label="Салбар"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Dense="true" Class="ags-sel">
+                    @foreach (var b in _lookups.Branches)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)b.BranchId)">@b.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" Value="_sortBy" ValueChanged="OnSortChangedAsync" Label="Эрэмбэ"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="ags-sel">
+                    <MudSelectItem T="string" Value="@("listings")">Идэвхтэй зараар</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("sales")">Хаагдсан гэрээгээр</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("name")">Нэрээр (А-Я)</MudSelectItem>
+                </MudSelect>
+            </div>
+
+            @if (!_loading)
+            {
+                <div class="ags-count">Нийт <b>@_total</b> агент</div>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ags-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="ags-empty">
+                <MudIcon Icon="@Icons.Material.Filled.PersonSearch" Size="Size.Large" />
+                <p>Тохирох агент олдсонгүй.</p>
+            </div>
+        }
+        else
+        {
+            <div class="ags-grid">
+                @foreach (var a in _items)
+                {
+                    <a href="/agents/@a.AgentId" class="acard">
+                        <div class="acard-cover" style="background-image:url('@Cover(a)')"></div>
+                        <div class="acard-ava" style="background-image:url('@Ava(a.AgentId)')"></div>
+                        <div class="acard-body">
+                            <div class="acard-name">@a.FullName</div>
+                            <div class="acard-branch">
+                                <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Small" />
+                                @(a.BranchName ?? "Салбар тодорхойгүй")
+                            </div>
+
+                            <div class="acard-stats">
+                                <div class="astat">
+                                    <span class="astat-num">@a.ActiveListings</span>
+                                    <span class="astat-lbl">Идэвхтэй зар</span>
+                                </div>
+                                <div class="astat">
+                                    <span class="astat-num">@a.ClosedDeals</span>
+                                    <span class="astat-lbl">Хаагдсан гэрээ</span>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(a.Phone))
+                            {
+                                <div class="acard-phone">
+                                    <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" /> @a.Phone
+                                </div>
+                            }
+                        </div>
+                    </a>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="ags-pager">
+                    <button class="pg-btn" disabled="@(_pageNumber <= 1)" @onclick="() => GoToPageAsync(_pageNumber - 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" />
+                    </button>
+                    @for (int i = 1; i <= TotalPages; i++)
+                    {
+                        var pnum = i;
+                        <button class="pg-btn @(pnum == _pageNumber ? "on" : "")" @onclick="() => GoToPageAsync(pnum)">@pnum</button>
+                    }
+                    <button class="pg-btn" disabled="@(_pageNumber >= TotalPages)" @onclick="() => GoToPageAsync(_pageNumber + 1)">
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private LookupData _lookups = new();
+    private List<AgentPublicItem> _items = new();
+    private int _total;
+
+    private string? _search;
+    private int? _branchId;
+    private string _sortBy = "listings";
+    private int _pageNumber = 1;
+    private const int PageSize = 12;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _lookups = await LookupRepo.GetAllAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var res = await AgentRepo.ListPublicAsync(_search, _branchId, _sortBy, _pageNumber, PageSize);
+        _items = res.Items.ToList();
+        _total = res.Total;
+
+        _loading = false;
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") { _pageNumber = 1; await LoadAsync(); }
+    }
+
+    private async Task OnBranchChangedAsync(int? value)
+    {
+        _branchId = value;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSortChangedAsync(string value)
+    {
+        _sortBy = value;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        _pageNumber = page;
+        await LoadAsync();
+    }
+
+    private int TotalPages => (int)Math.Ceiling(_total / (double)PageSize);
+
+    private string Cover(AgentPublicItem a) =>
+        string.IsNullOrEmpty(a.LatestImagePath)
+            ? $"https://picsum.photos/seed/cover{a.AgentId}/400/160"
+            : a.LatestImagePath;
+
+    private string Ava(int agentId) => $"https://i.pravatar.cc/160?u={agentId}";
+}

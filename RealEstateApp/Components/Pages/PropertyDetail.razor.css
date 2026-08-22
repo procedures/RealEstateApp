@@ -1,0 +1,454 @@
+﻿.pd {
+    --g: var(--mud-palette-primary, #2c7a7b);
+    font-family: Roboto, sans-serif;
+    background: #f4f6f8;
+    min-height: 100vh;
+}
+
+.pd-container {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+.pd-center {
+    display: flex;
+    justify-content: center;
+    padding: 60px 0;
+}
+
+/* ===================== Breadcrumb ===================== */
+.pd-crumbbar {
+    background: #eef1f4;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 0;
+    margin-bottom: 24px;
+    font-size: .88rem;
+}
+
+    .pd-crumbbar a {
+        color: var(--g);
+        text-decoration: none;
+    }
+
+        .pd-crumbbar a:hover {
+            text-decoration: underline;
+        }
+
+    .pd-crumbbar span {
+        color: #a0aec0;
+        margin: 0 8px;
+    }
+
+    .pd-crumbbar b {
+        color: #4a5568;
+        font-weight: 600;
+    }
+
+/* ====================== Байрлал ====================== */
+.pd-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+    padding-bottom: 50px;
+}
+
+/* ====================== Галерей ====================== */
+.gallery {
+    margin-bottom: 24px;
+}
+
+.g-main {
+    height: 440px;
+    border-radius: 16px;
+    background-size: cover;
+    background-position: center;
+    background-color: #e2e8f0;
+    box-shadow: 0 8px 26px rgba(0,0,0,.12);
+    position: relative;
+}
+
+.g-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,.9);
+    color: #1a202c;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    transition: background .15s;
+}
+
+    .g-arrow:hover {
+        background: #fff;
+    }
+
+    .g-arrow.left {
+        left: 14px;
+    }
+
+    .g-arrow.right {
+        right: 14px;
+    }
+
+.g-counter, .g-noimg {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0,0,0,.6);
+    color: #fff;
+    font-size: .78rem;
+    padding: 5px 12px;
+    border-radius: 14px;
+}
+
+.g-thumbs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.g-thumb {
+    height: 86px;
+    border-radius: 10px;
+    background-size: cover;
+    background-position: center;
+    background-color: #e2e8f0;
+    cursor: pointer;
+    opacity: .6;
+    border: 3px solid transparent;
+    transition: opacity .15s, border-color .15s;
+}
+
+    .g-thumb:hover {
+        opacity: 1;
+    }
+
+    .g-thumb.active {
+        opacity: 1;
+        border-color: var(--g);
+    }
+
+/* ====================== Тайлбар ====================== */
+.about {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    padding: 22px 24px;
+}
+
+.about-h {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #1a3c40;
+    margin-bottom: 14px;
+}
+
+.about-p {
+    color: #4a5568;
+    line-height: 1.75;
+    margin: 8px 0;
+}
+
+/* ================= Дотоод мэдээлэл ================= */
+.inside {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    padding: 22px 24px;
+    margin-top: 20px;
+    border-left: 4px solid var(--g);
+}
+
+.inside-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    gap: 12px;
+}
+
+.inside-h {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1a3c40;
+}
+
+.inside-edit {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--g);
+    color: #fff;
+    font-size: .82rem;
+    padding: 7px 16px;
+    border-radius: 18px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity .15s;
+}
+
+    .inside-edit:hover {
+        opacity: .88;
+    }
+
+.inside-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 20px;
+}
+
+.ig-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ig-lbl {
+    color: #8a949a;
+    font-size: .76rem;
+}
+
+.ig-val {
+    color: #1a202c;
+    font-weight: 600;
+    font-size: .92rem;
+}
+
+.ig-badge {
+    display: inline-block;
+    width: fit-content;
+    color: #fff;
+    font-size: .75rem;
+    font-weight: 600;
+    padding: 3px 12px;
+    border-radius: 12px;
+}
+
+/* ====================== Sidebar ====================== */
+.pd-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 88px;
+    align-self: start;
+}
+
+.side-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.08);
+    padding: 22px;
+}
+
+.sc-price {
+    font-size: 1.9rem;
+    font-weight: 800;
+    color: var(--g);
+    line-height: 1.1;
+}
+
+.sc-badge {
+    display: inline-block;
+    background: #e6f2f2;
+    color: var(--g);
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 6px;
+    margin: 8px 0 16px;
+    letter-spacing: .04em;
+}
+
+.sc-addr-title {
+    font-weight: 700;
+    color: #1a3c40;
+    font-size: 1.05rem;
+}
+
+.sc-addr {
+    color: #718096;
+    font-size: .9rem;
+    margin-top: 3px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #edf2f7;
+    line-height: 1.5;
+}
+
+.specs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 12px;
+    padding: 18px 0;
+    border-bottom: 1px solid #edf2f7;
+}
+
+/* ================== Агентын хэсэг ================== */
+.agent-box {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding-top: 18px;
+}
+
+.agent-ava {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: #e8edee;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .agent-ava img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.agent-initial {
+    background: var(--g);
+    color: #fff;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    font-weight: 800;
+}
+
+.agent-name {
+    display: block;
+    font-weight: 700;
+    color: #1a3c40;
+    text-decoration: none;
+}
+
+    .agent-name:hover {
+        color: var(--g);
+    }
+
+.agent-role {
+    color: #8a949a;
+    font-size: .82rem;
+    margin-bottom: 4px;
+}
+
+.agent-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--g);
+    font-size: .85rem;
+    text-decoration: none;
+}
+
+    .agent-line:hover {
+        text-decoration: underline;
+    }
+
+/* ================= Үзлэг захиалах ================= */
+.tour-h {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1a3c40;
+    margin-bottom: 14px;
+}
+
+.mb-2 {
+    margin-bottom: 10px;
+}
+
+.mt-2 {
+    margin-top: 10px;
+}
+
+.side-card ::deep .mud-input-control {
+    min-width: 0;
+}
+
+.tour-ok {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: #e6fffa;
+    border-radius: 11px;
+    padding: 14px 16px;
+    color: #276749;
+}
+
+.tour-okh {
+    font-weight: 700;
+    font-size: .95rem;
+}
+
+.tour-oks {
+    font-size: .82rem;
+    opacity: .85;
+    margin-top: 2px;
+}
+
+/* ====================== Responsive ====================== */
+@media (max-width: 900px) {
+    .pd-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pd-aside {
+        position: static;
+    }
+
+    .g-main {
+        height: 340px;
+    }
+}
+
+@media (max-width: 600px) {
+    .g-thumbs {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .g-thumb {
+        height: 70px;
+    }
+
+    .g-main {
+        height: 250px;
+    }
+
+    .specs {
+        grid-template-columns: 1fr;
+    }
+
+    .inside-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .inside-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .sc-price {
+        font-size: 1.6rem;
+    }
+}

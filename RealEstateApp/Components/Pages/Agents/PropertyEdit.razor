@@ -1,0 +1,290 @@
+﻿@page "/agent/property/{Id:int}/edit"
+@attribute [Authorize]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@using RealEstateApp.Components.Shared
+@inject IPropertyRepository PropertyRepo
+@inject ILookupRepository LookupRepo
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+<PageTitle>Хөрөнгө засах</PageTitle>
+
+<div class="pn">
+    <SiteHeader />
+
+    <div class="pn-container">
+        @if (_loading)
+        {
+            <div class="pn-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_notFound)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-8">Ийм хөрөнгө олдсонгүй.</MudAlert>
+        }
+        else if (_noAccess)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-8">
+                Энэ хөрөнгийг засах эрхгүй байна. Зөвхөн бүртгэсэн агент буюу админ засна.
+            </MudAlert>
+        }
+        else if (_closed)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-8">
+                Хаагдсан гэрээг засах боломжгүй.
+            </MudAlert>
+        }
+        else
+        {
+            <div class="pn-top">
+                <h1 class="pn-h1">Хөрөнгө засах</h1>
+                <p class="pn-sub">
+                    №@Id &nbsp;·&nbsp; Төлөв:
+                    <span class="pn-status" style="background:@StatusColor(_status)">@StatusLabel(_status)</span>
+                </p>
+            </div>
+
+            <MudForm @ref="_form" Model="_input">
+                <!-- 1. Үндсэн мэдээлэл -->
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">1</span> Үндсэн мэдээлэл</h3>
+                    <div class="pn-grid">
+                        <MudSelect T="int?" @bind-Value="_input.TransactionTypeId" Label="Гүйлгээний төрөл *"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   Required="true" RequiredError="Сонгоно уу">
+                            @foreach (var t in _lookups.TransactionTypes)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)t.TransactionTypeId)">@t.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudSelect T="int?" @bind-Value="_input.PropertyTypeId" Label="Хөрөнгийн төрөл *"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   Required="true" RequiredError="Сонгоно уу">
+                            @foreach (var t in _lookups.PropertyTypes)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)t.PropertyTypeId)">@t.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudTextField T="string" @bind-Value="_input.ContractNumber" Label="Гэрээний дугаар"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                        <MudDatePicker @bind-Date="_input.ContractDate" Label="Гэрээ хийсэн огноо"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </div>
+                </div>
+
+                <!-- 2. Байршил -->
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">2</span> Байршил</h3>
+                    <div class="pn-grid">
+                        <MudSelect T="int?" @bind-Value="_input.DistrictId" Label="Дүүрэг *"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   Required="true" RequiredError="Сонгоно уу">
+                            @foreach (var d in _lookups.Districts)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)d.DistrictId)">@d.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudTextField T="string" @bind-Value="_input.ComplexName" Label="Хотхоны нэр"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                        <div class="pn-full">
+                            <MudTextField T="string" @bind-Value="_input.LocationDescription"
+                                          Label="Байршил / томоохон байршил"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </div>
+
+                        <div class="pn-full">
+                            <MudTextField T="string" @bind-Value="_input.Address" Label="ҮХХ-н бүрэн хаяг *"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2"
+                                          Required="true" RequiredError="Хаягаа оруулна уу" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Үнэ ба талбай -->
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">3</span> Үнэ ба талбай</h3>
+                    <div class="pn-grid">
+                        <MudNumericField T="decimal?" @bind-Value="_input.Price" Label="Үнэ (₮) *"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0"
+                                         Required="true" RequiredError="Үнээ оруулна уу" Min="0" />
+
+                        <MudNumericField T="decimal?" @bind-Value="_input.AreaSize" Label="Талбай (м²) *"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Format="0.##"
+                                         Required="true" RequiredError="Талбайгаа оруулна уу" Min="0" />
+
+                        <div class="pn-calc">
+                            <div class="pn-calc-lbl">1м² үнэ</div>
+                            <div class="pn-calc-val">@PricePerSqm</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Барилгын мэдээлэл -->
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">4</span> Барилгын мэдээлэл</h3>
+                    <div class="pn-grid">
+                        <MudNumericField T="int?" @bind-Value="_input.RoomCount" Label="Өрөөний тоо"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                        <MudNumericField T="int?" @bind-Value="_input.BuildingFloors" Label="Барилгын нийт давхар"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                        <MudNumericField T="int?" @bind-Value="_input.FloorNumber" Label="Хэдэн давхарт"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                        <MudNumericField T="int?" @bind-Value="_input.CommissionedYear" Label="Ашиглалтад орсон он"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense" Min="1900" Max="2100" />
+
+                        <MudSelect T="int?" @bind-Value="_input.WindowDirectionId" Label="Цонхны байршил"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                            @foreach (var w in _lookups.WindowDirections)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)w.WindowDirectionId)">@w.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <div class="pn-checks">
+                            <MudCheckBox T="bool" @bind-Value="_input.HasGarage" Label="Гараж байгаа" Color="Color.Primary" Dense="true" />
+                            <MudCheckBox T="bool" @bind-Value="_input.OwnerSelfSelling" Label="Эзэн өөрөө худалдаж байгаа" Color="Color.Primary" Dense="true" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Холбоо барих -->
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">5</span> Холбоо барих</h3>
+                    <div class="pn-grid">
+                        <MudTextField T="string" @bind-Value="_input.ContactPhone" Label="Холбогдох дугаар"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </div>
+                </div>
+
+                <!-- 6. Зураг -->
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">6</span> Зураг</h3>
+                    <ImageManager PropertyId="Id" ActorAgentId="_agentId" />
+                </div>
+
+                <div class="pn-actions">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                               OnClick="@(() => Nav.NavigateTo("/agent"))" Disabled="_saving">
+                        Цуцлах
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               OnClick="SaveAsync" Disabled="_saving">
+                        @(_saving ? "Хадгалж байна…" : "Хадгалах")
+                    </MudButton>
+                </div>
+            </MudForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private MudForm _form = default!;
+    private LookupData _lookups = new();
+    private PropertyInput _input = new();
+
+    private bool _loading = true, _saving, _notFound, _noAccess, _closed;
+    private int _agentId, _status;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _agentId = auth.User.GetAgentId();
+        var isAdmin = auth.User.IsAdmin();
+
+        _lookups = await LookupRepo.GetAllAsync();
+        var d = await PropertyRepo.GetByIdAsync(Id);
+
+        if (d is null)
+        {
+            _notFound = true;
+        }
+        else if (d.AgentId != _agentId && !isAdmin)
+        {
+            _noAccess = true;
+        }
+        else if (d.Status == 5)
+        {
+            _closed = true;
+        }
+        else
+        {
+            _status = d.Status;
+            _input = PropertyInput.FromDetail(d);
+        }
+
+        _loading = false;
+    }
+
+    private string PricePerSqm
+    {
+        get
+        {
+            if (_input.Price is > 0 && _input.AreaSize is > 0)
+                return (_input.Price.Value / _input.AreaSize.Value)
+                    .ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+            return "-";
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Шаардлагатай талбаруудыг бөглөнө үү.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var result = await PropertyRepo.UpdateAsync(Id, _input, _agentId);
+            if (result.Ok)
+            {
+                Snackbar.Add(result.Message, Severity.Success);
+                Nav.NavigateTo("/agent");
+            }
+            else
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string StatusLabel(int s) => s switch
+    {
+        1 => "Ноорог",
+        2 => "Хүлээгдэж буй",
+        3 => "Нийтлэгдсэн",
+        4 => "Хаалт хүсэлт",
+        5 => "Хаагдсан",
+        6 => "Цуцлагдсан",
+        _ => "-"
+    };
+    private string StatusColor(int s) => s switch
+    {
+        3 => "#2c7a7b",
+        2 => "#dd6b20",
+        4 => "#3182ce",
+        5 => "#718096",
+        6 => "#e53e3e",
+        _ => "#a0aec0"
+    };
+}

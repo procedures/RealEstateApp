@@ -1,0 +1,350 @@
+﻿@page "/admin/closures"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IClosureRepository ClosureRepo
+@inject ISnackbar Snackbar
+<PageTitle>Хаалтын хүсэлтүүд</PageTitle>
+
+<div class="ad">
+    <SiteHeader />
+
+    <div class="ad-container">
+        <div class="ad-top">
+            <h1 class="ad-h1">Хаалтын хүсэлтүүд</h1>
+            <p class="ad-sub">
+                Шийдвэрлэхийг хүлээж буй <b>@_items.Count</b> хүсэлт
+                @if (_items.Any(x => x.HasMissingInfo))
+                {
+                    <span class="ad-warn-inline">
+                        · <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" />
+                        @_items.Count(x => x.HasMissingInfo) хүсэлтэд мэдээлэл дутуу
+                    </span>
+                }
+            </p>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ad-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="ad-empty">
+                <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Size="Size.Large" />
+                <p>Хүлээгдэж буй хаалтын хүсэлт байхгүй байна.</p>
+            </div>
+        }
+        else
+        {
+            <div class="cl-list">
+                @foreach (var c in _items)
+                {
+                    var item = c;
+                    <div class="cl-card @(item.HasMissingInfo ? "warn" : "")">
+                        <!-- Толгой -->
+                        <div class="cl-head">
+                            <div>
+                                <div class="cl-title">@(item.ComplexName ?? "Хөрөнгө") №@item.PropertyId</div>
+                                <div class="cl-addr">
+                                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @item.Address
+                                </div>
+                            </div>
+                            <div class="cl-tags">
+                                @if (item.HasMissingInfo)
+                                {
+                                    <span class="cl-tag warn">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" /> Мэдээлэл дутуу
+                                    </span>
+                                }
+                                <span class="cl-reason @(item.IsSold ? "sold" : "")">@item.ClosureReasonName</span>
+                            </div>
+                        </div>
+
+                        <!-- Товч мэдээлэл -->
+                        <div class="cl-facts">
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Хаалтын огноо</span>
+                                <span class="cl-val">@item.ClosureDate.ToString("yyyy-MM-dd")</span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Зарын үнэ</span>
+                                <span class="cl-val">@Money(item.ListedPrice)</span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Борлуулсан үнэ</span>
+                                <span class="cl-val @(item.SoldTotalPrice.HasValue ? "hl" : "")">
+                                    @(item.SoldTotalPrice.HasValue ? Money(item.SoldTotalPrice.Value) : "-")
+                                </span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Худалдан авагч</span>
+                                <span class="cl-val">@(string.IsNullOrWhiteSpace(item.BuyerName) ? "-" : item.BuyerName)</span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Илгээсэн агент</span>
+                                <span class="cl-val">@item.SubmittedByAgent</span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Илгээсэн огноо</span>
+                                <span class="cl-val">@item.SubmittedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                            </div>
+                        </div>
+
+                        <!-- Дэлгэрэнгүй задлах -->
+                        <button type="button" class="cl-expand" @onclick="() => ToggleDetailAsync(item.ClosureId)">
+                            <MudIcon Icon="@(_openId == item.ClosureId ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
+                            @(_openId == item.ClosureId ? "Дэлгэрэнгүйг хаах" : "Бүрэн мэдээлэл харах")
+                        </button>
+
+                        @if (_openId == item.ClosureId)
+                        {
+                            @if (_detailLoading)
+                            {
+                                <div class="cl-detail-load"><MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" /></div>
+                            }
+                            else if (_detail is not null)
+                            {
+                                <div class="cl-detail">
+                                    <!-- Хөрөнгийн мэдээлэл -->
+                                    <div class="cl-sec">
+                                        <h4 class="cl-sh"><MudIcon Icon="@Icons.Material.Filled.HomeWork" Size="Size.Small" /> Хөрөнгийн мэдээлэл</h4>
+                                        <div class="cl-dgrid">
+                                            <div><span class="cl-lbl">Гэрээний дугаар</span><span class="cl-val">@(_detail.ContractNumber ?? "-")</span></div>
+                                            <div><span class="cl-lbl">Гэрээ хийсэн</span><span class="cl-val">@(_detail.ContractDate?.ToString("yyyy-MM-dd") ?? "-")</span></div>
+                                            <div><span class="cl-lbl">Төрөл</span><span class="cl-val">@_detail.PropertyTypeName / @_detail.TransactionTypeName</span></div>
+                                            <div><span class="cl-lbl">Дүүрэг</span><span class="cl-val">@_detail.DistrictName</span></div>
+                                            <div><span class="cl-lbl">Талбай</span><span class="cl-val">@_detail.AreaSize.ToString("0.#") м²</span></div>
+                                            <div><span class="cl-lbl">Өрөө</span><span class="cl-val">@(_detail.RoomCount?.ToString() ?? "-")</span></div>
+                                            <div><span class="cl-lbl">Хариуцсан агент</span><span class="cl-val">@_detail.PropertyAgentName</span></div>
+                                            <div><span class="cl-lbl">Зураг</span><span class="cl-val">@_detail.ImageCount ш</span></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Үнийн харьцуулалт -->
+                                    @if (_detail.SoldTotalPrice.HasValue)
+                                    {
+                                        <div class="cl-sec">
+                                            <h4 class="cl-sh"><MudIcon Icon="@Icons.Material.Filled.Payments" Size="Size.Small" /> Үнийн харьцуулалт</h4>
+                                            <div class="cl-pricebox">
+                                                <div class="cl-pcell">
+                                                    <span class="cl-lbl">Зарын үнэ</span>
+                                                    <span class="cl-pval">@Money(_detail.ListedPrice)</span>
+                                                    <span class="cl-psub">@(_detail.ListedPricePerSqm.HasValue ? Money(_detail.ListedPricePerSqm.Value) + " /м²" : "")</span>
+                                                </div>
+                                                <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="cl-arrow" />
+                                                <div class="cl-pcell">
+                                                    <span class="cl-lbl">Борлуулсан үнэ</span>
+                                                    <span class="cl-pval hl">@Money(_detail.SoldTotalPrice.Value)</span>
+                                                    <span class="cl-psub">@(_detail.SoldPricePerSqm.HasValue ? Money(_detail.SoldPricePerSqm.Value) + " /м²" : "")</span>
+                                                </div>
+                                                @if (_detail.PriceDiff.HasValue)
+                                                {
+                                                    <div class="cl-pcell">
+                                                        <span class="cl-lbl">Зөрүү</span>
+                                                        <span class="cl-pval @(_detail.PriceDiff >= 0 ? "up" : "down")">
+                                                            @(_detail.PriceDiff >= 0 ? "+" : "")@Money(_detail.PriceDiff.Value)
+                                                        </span>
+                                                        <span class="cl-psub">
+                                                            @(_detail.PriceDiffPercent >= 0 ? "+" : "")@_detail.PriceDiffPercent?.ToString("0.##")%
+                                                        </span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <!-- Худалдан авагч -->
+                                    @if (_detail.IsSold)
+                                    {
+                                        <div class="cl-sec">
+                                            <h4 class="cl-sh"><MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" /> Худалдан авагчийн мэдээлэл</h4>
+                                            <div class="cl-dgrid">
+                                                <div><span class="cl-lbl">Овог</span><span class="cl-val">@Dash(_detail.BuyerLastName)</span></div>
+                                                <div><span class="cl-lbl">Нэр</span><span class="cl-val">@Dash(_detail.BuyerFirstName)</span></div>
+                                                <div><span class="cl-lbl">Регистрийн дугаар</span><span class="cl-val">@Dash(_detail.BuyerRegNo)</span></div>
+                                                <div>
+                                                    <span class="cl-lbl">Утас</span>
+                                                    @if (!string.IsNullOrWhiteSpace(_detail.BuyerPhone))
+                                                    {
+                                                        <a href="tel:@_detail.BuyerPhone" class="cl-val link">@_detail.BuyerPhone</a>
+                                                    }
+                                                    else
+                                                    {
+
+                                                        <span class="cl-val">-</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Хамтран борлуулсан агент -->
+                                        <div class="cl-sec">
+                                            <h4 class="cl-sh"><MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Small" /> Хамтран борлуулсан агент</h4>
+                                            @if (_detail.HasCoAgentInfo)
+                                            {
+                                                <div class="cl-dgrid">
+                                                    <div><span class="cl-lbl">Салбар</span><span class="cl-val">@Dash(_detail.CoAgentBranchName)</span></div>
+                                                    <div><span class="cl-lbl">Овог</span><span class="cl-val">@Dash(_detail.CoAgentLastName)</span></div>
+                                                    <div><span class="cl-lbl">Нэр</span><span class="cl-val">@Dash(_detail.CoAgentFirstName)</span></div>
+                                                    <div><span class="cl-lbl">Утас</span><span class="cl-val">@Dash(_detail.CoAgentPhone)</span></div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <p class="cl-none">Хамтран борлуулсан агент бүртгээгүй.</p>
+                                            }
+                                        </div>
+                                    }
+
+                                    <!-- Илгээсэн агент -->
+                                    <div class="cl-sec">
+                                        <h4 class="cl-sh"><MudIcon Icon="@Icons.Material.Filled.Send" Size="Size.Small" /> Хүсэлт илгээсэн</h4>
+                                        <div class="cl-dgrid">
+                                            <div><span class="cl-lbl">Агент</span><span class="cl-val">@_detail.SubmittedByAgentName</span></div>
+                                            <div><span class="cl-lbl">Утас</span><span class="cl-val">@Dash(_detail.SubmittedByAgentPhone)</span></div>
+                                            <div><span class="cl-lbl">Илгээсэн</span><span class="cl-val">@_detail.SubmittedAt.ToString("yyyy-MM-dd HH:mm")</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+
+                        <!-- Тэмдэглэл ба үйлдэл -->
+                        <div class="cl-note">
+                            <MudTextField T="string" @bind-Value="_notes[item.ClosureId]"
+                                          Label="Админы тэмдэглэл (татгалзах үед заавал бөглөнө)"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </div>
+
+                        <div class="cl-actions">
+                            <a href="/property/@item.PropertyId" class="ad-btn outline" target="_blank">Хөрөнгө харах</a>
+
+                            @if (_confirm == (item.ClosureId, ActApprove))
+                            {
+                                <span class="cl-confirm-txt">Гэрээг хааж баталгаажуулах уу?</span>
+                                <button type="button" class="ad-btn" disabled="@_busy" @onclick="() => ApproveAsync(item.ClosureId)">Тийм, хаах</button>
+                                <button type="button" class="ad-btn outline" disabled="@_busy" @onclick="() => _confirm = null">Болих</button>
+                            }
+                            else if (_confirm == (item.ClosureId, ActReject))
+                            {
+                                <span class="cl-confirm-txt">Хүсэлтийг татгалзах уу?</span>
+                                <button type="button" class="ad-btn danger" disabled="@_busy" @onclick="() => RejectAsync(item.ClosureId)">Тийм, татгалзах</button>
+                                <button type="button" class="ad-btn outline" disabled="@_busy" @onclick="() => _confirm = null">Болих</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="ad-btn" disabled="@_busy" @onclick="() => _confirm = (item.ClosureId, ActApprove)">Зөвшөөрөх</button>
+                                <button type="button" class="ad-btn danger" disabled="@_busy" @onclick="() => _confirm = (item.ClosureId, ActReject)">Татгалзах</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private const int ActApprove = 1;
+    private const int ActReject = 2;
+
+    private bool _loading = true, _busy, _detailLoading;
+    private int _adminId;
+    private string _userName = "";
+    private (int Id, int Action)? _confirm;
+    private int? _openId;
+    private ClosureDetailDto? _detail;
+
+    private List<PendingClosure> _items = new();
+    private Dictionary<int, string> _notes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _adminId = auth.User.GetAgentId();
+        _userName = auth.User.GetFullName();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _confirm = null;
+        _openId = null;
+        _detail = null;
+
+        _items = await ClosureRepo.ListPendingAsync();
+        _notes = _items.ToDictionary(x => x.ClosureId, _ => "");
+
+        _loading = false;
+    }
+
+    private async Task ToggleDetailAsync(int closureId)
+    {
+        if (_openId == closureId)
+        {
+            _openId = null;
+            _detail = null;
+            return;
+        }
+
+        _openId = closureId;
+        _detailLoading = true;
+        _detail = null;
+
+        try
+        {
+            _detail = await ClosureRepo.GetByIdAsync(closureId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Дэлгэрэнгүй татахад алдаа: {ex.Message}", Severity.Error);
+            _openId = null;
+        }
+        finally { _detailLoading = false; }
+    }
+
+    private string? NoteOf(int id) =>
+        _notes.TryGetValue(id, out var v) && !string.IsNullOrWhiteSpace(v) ? v.Trim() : null;
+
+    private async Task ApproveAsync(int closureId)
+    {
+        _busy = true;
+        try
+        {
+            var r = await ClosureRepo.ApproveAsync(closureId, _adminId, NoteOf(closureId));
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    private async Task RejectAsync(int closureId)
+    {
+        // Татгалзахад шалтгаанаа бичсэн байх — агент юуг засахаа мэдэх ёстой
+        if (NoteOf(closureId) is null)
+        {
+            Snackbar.Add("Татгалзах шалтгаанаа тэмдэглэлд бичнэ үү.", Severity.Warning);
+            _confirm = null;
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var r = await ClosureRepo.RejectAsync(closureId, _adminId, NoteOf(closureId));
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    private static string Dash(string? s) => string.IsNullOrWhiteSpace(s) ? "-" : s;
+    private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+}

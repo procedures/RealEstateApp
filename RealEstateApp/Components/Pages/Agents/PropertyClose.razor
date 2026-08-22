@@ -1,0 +1,271 @@
+﻿@page "/agent/property/{Id:int}/close"
+@attribute [Authorize]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@using RealEstateApp.Services
+@inject IPropertyRepository PropertyRepo
+@inject IClosureRepository ClosureRepo
+@inject ILookupRepository LookupRepo
+@inject ITelegramNotifier Telegram
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+<PageTitle>Гэрээний хаалт</PageTitle>
+
+<div class="pn">
+    <SiteHeader />
+
+    <div class="pn-container">
+        @if (_loading)
+        {
+            <div class="pn-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_notFound)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-8">Ийм хөрөнгө олдсонгүй.</MudAlert>
+        }
+        else if (_noAccess)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-8">Энэ хөрөнгийн хаалт хийх эрхгүй байна.</MudAlert>
+        }
+        else if (_alreadyClosed)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-8">
+                Энэ гэрээ аль хэдийн хаагдсан байна. <a href="/agent">Буцах</a>
+            </MudAlert>
+        }
+        else
+        {
+            <div class="pn-top">
+                <h1 class="pn-h1">Гэрээний хаалт</h1>
+                <p class="pn-sub">@_p!.Address &nbsp;·&nbsp; @Money(_p.Price) &nbsp;·&nbsp; @_p.AreaSize.ToString("0.#") м²</p>
+            </div>
+
+            @if (_pending is not null)
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-4">
+                    Хаалтын хүсэлт илгээгдсэн байна (@_pending.SubmittedAt.ToString("yyyy-MM-dd HH:mm")).
+                    Админ шалгаж байна. Дахин илгээвэл өмнөх хүсэлт солигдоно.
+                </MudAlert>
+            }
+
+            <MudForm @ref="_form" Model="_input">
+                <!-- 1. Хаалтын мэдээлэл -->
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">1</span> Гэрээний хаалт</h3>
+                    <div class="pn-grid">
+                        <MudSelect T="int?" @bind-Value="_input.ClosureReasonId" Label="Хаалтын шалтгаан *"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   Required="true" RequiredError="Сонгоно уу">
+                            @foreach (var r in _lookups.ClosureReasons)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)r.ClosureReasonId)">@r.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudDatePicker @bind-Date="_input.ClosureDate" Label="Хаалт хийсэн огноо *"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                                       Required="true" RequiredError="Огноогоо сонгоно уу" />
+                    </div>
+                </div>
+
+                @if (IsSoldReason)
+                {
+                    <!-- 2. Борлуулалтын мэдээлэл -->
+                    <div class="pn-card">
+                        <h3 class="pn-ch"><span class="pn-num">2</span> Борлуулалтын мэдээлэл</h3>
+                        <div class="pn-grid">
+                            <MudNumericField T="decimal?" @bind-Value="_input.SoldTotalPrice"
+                                             Label="Борлуулсан нийт үнэ (₮) *"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0"
+                                             HelperText="@($"Зарын үнэ: {Money(_p.Price)}")" />
+
+                            <MudNumericField T="decimal?" @bind-Value="_input.SoldPricePerSqm"
+                                             Label="Борлуулсан 1м² үнэ (₮)"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0"
+                                             HelperText="@($"Автомат: {AutoPerSqm}")"
+                                             Adornment="Adornment.End"
+                                             AdornmentIcon="@Icons.Material.Filled.Calculate"
+                                             OnAdornmentClick="FillPerSqm" />
+                        </div>
+                    </div>
+
+                    <!-- 3. Худалдан авагч -->
+                    <div class="pn-card">
+                        <h3 class="pn-ch"><span class="pn-num">3</span> Худалдан авагчийн мэдээлэл</h3>
+                        <div class="pn-grid">
+                            <MudTextField T="string" @bind-Value="_input.BuyerLastName" Label="Овог"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField T="string" @bind-Value="_input.BuyerFirstName" Label="Нэр"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField T="string" @bind-Value="_input.BuyerRegNo" Label="Регистрийн дугаар"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Placeholder="АА00112233" />
+                            <MudTextField T="string" @bind-Value="_input.BuyerPhone" Label="Утасны дугаар"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </div>
+                    </div>
+
+                    <!-- 4. Хамтран борлуулсан агент -->
+                    <div class="pn-card">
+                        <h3 class="pn-ch"><span class="pn-num">4</span> Хамтран борлуулсан агент</h3>
+                        <p class="pn-hint">Хамтран ажилласан агент байхгүй бол хоосон орхино уу.</p>
+                        <div class="pn-grid">
+                            <MudSelect T="int?" @bind-Value="_input.CoAgentBranchId" Label="Салбарын нэр"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                                @foreach (var b in _lookups.Branches)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)b.BranchId)">@b.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudTextField T="string" @bind-Value="_input.CoAgentPhone" Label="Утасны дугаар"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField T="string" @bind-Value="_input.CoAgentLastName" Label="Овог"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField T="string" @bind-Value="_input.CoAgentFirstName" Label="Нэр"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </div>
+                    </div>
+                }
+
+                <div class="pn-note mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+                    <span>Илгээсний дараа админ шалгаж зөвшөөрснөөр гэрээ хаагдана.</span>
+                </div>
+
+                <div class="pn-actions">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                               OnClick="@(() => Nav.NavigateTo("/agent"))" Disabled="_saving">
+                        Цуцлах
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Send"
+                               OnClick="SubmitAsync" Disabled="_saving">
+                        @(_saving ? "Илгээж байна…" : "Админ руу илгээх")
+                    </MudButton>
+                </div>
+            </MudForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private MudForm _form = default!;
+    private LookupData _lookups = new();
+    private ClosureInput _input = new();
+    private PropertyDetailDto? _p;
+    private PropertyClosureDto? _pending;
+
+    private bool _loading = true, _saving, _notFound, _noAccess, _alreadyClosed;
+    private int _agentId;
+    private string _agentName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _agentId = auth.User.GetAgentId();
+        _agentName = auth.User.GetFullName();
+        var isAdmin = auth.User.IsAdmin();
+
+        _lookups = await LookupRepo.GetAllAsync();
+        _p = await PropertyRepo.GetByIdAsync(Id);
+
+        if (_p is null) { _notFound = true; }
+        else if (_p.AgentId != _agentId && !isAdmin) { _noAccess = true; }
+        else if (_p.Status == 5) { _alreadyClosed = true; }
+        else
+        {
+            var closures = await ClosureRepo.GetByPropertyAsync(Id);
+            _pending = closures.FirstOrDefault(c => c.ApprovalStatus == 1);
+        }
+
+        _loading = false;
+    }
+
+    // Сонгосон шалтгаан нь борлуулалт мөн эсэх
+    private bool IsSoldReason =>
+        _input.ClosureReasonId is int id &&
+        _lookups.ClosureReasons.FirstOrDefault(r => r.ClosureReasonId == id)?.IsSold == true;
+
+    private string AutoPerSqm
+    {
+        get
+        {
+            if (_input.SoldTotalPrice is > 0 && _p?.AreaSize is > 0)
+                return (_input.SoldTotalPrice.Value / _p.AreaSize)
+                    .ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+            return "-";
+        }
+    }
+
+    private void FillPerSqm()
+    {
+        if (_input.SoldTotalPrice is > 0 && _p?.AreaSize is > 0)
+            _input.SoldPricePerSqm = Math.Round(_input.SoldTotalPrice.Value / _p.AreaSize, 2);
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Шаардлагатай талбаруудыг бөглөнө үү.", Severity.Warning);
+            return;
+        }
+
+        if (IsSoldReason && _input.SoldTotalPrice is not > 0)
+        {
+            Snackbar.Add("Борлуулалт хийгдсэн бол нийт үнийн дүнг оруулна уу.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var result = await ClosureRepo.RequestAsync(Id, _input, _agentId);
+
+            if (result.Ok)
+            {
+                // Telegram мэдэгдэл (фон дээр)
+                var propName = _p?.ComplexName ?? _p?.Address ?? $"№{Id}";
+                var reason = _lookups.ClosureReasons
+                    .FirstOrDefault(r => r.ClosureReasonId == _input.ClosureReasonId)?.Name ?? "-";
+
+                var msg =
+                    $"📋 <b>Шинэ хаалтын хүсэлт</b>\n\n" +
+                    $"<b>Хөрөнгө:</b> {Esc(propName)}\n" +
+                    $"<b>Шалтгаан:</b> {Esc(reason)}\n" +
+                    (_input.SoldTotalPrice is > 0
+                        ? $"<b>Борлуулсан үнэ:</b> {_input.SoldTotalPrice:#,##0}₮\n" : "") +
+                    (!string.IsNullOrWhiteSpace(_input.BuyerLastName) || !string.IsNullOrWhiteSpace(_input.BuyerFirstName)
+                        ? $"<b>Худалдан авагч:</b> {Esc(_input.BuyerLastName)} {Esc(_input.BuyerFirstName)}\n" : "") +
+                    $"<b>Илгээсэн агент:</b> {Esc(_agentName)}\n\n" +
+                    $"⏳ Админы баталгаажуулалт хүлээж байна.";
+
+                _ = Telegram.SendAsync(msg);
+
+                Snackbar.Add(result.Message, Severity.Success);
+                Nav.NavigateTo("/agent");
+            }
+            else
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        finally { _saving = false; }
+    }
+
+    private string Money(decimal v) =>
+        v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+
+    private static string Esc(string? s) =>
+        string.IsNullOrEmpty(s) ? "" :
+        s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+}

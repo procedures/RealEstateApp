@@ -1,0 +1,165 @@
+﻿@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@using RealEstateApp.Services
+@inject IPropertyImageRepository ImageRepo
+@inject IImageStorageService Storage
+@inject ISnackbar Snackbar
+
+<div class="im">
+    <div class="im-head">
+        <h3 class="im-h">Зураг (@_images.Count)</h3>
+        <label class="im-upload @(_busy ? "disabled" : "")">
+            <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Small" />
+            @(_busy ? "Хуулж байна…" : "Зураг нэмэх")
+            <InputFile OnChange="OnFilesSelected" multiple accept="image/*" disabled="@_busy" />
+        </label>
+    </div>
+
+    <p class="im-hint">JPG, PNG, WEBP · нэг файл 5MB хүртэл · эхний зураг үндсэн зураг болно</p>
+
+    @if (_images.Count == 0)
+    {
+        <div class="im-empty">
+            <MudIcon Icon="@Icons.Material.Filled.PhotoLibrary" Size="Size.Large" />
+            <p>Зураг байхгүй байна.</p>
+        </div>
+    }
+    else
+    {
+        <div class="im-grid">
+            @foreach (var img in _images)
+            {
+                var image = img;
+                <div class="im-item @(image.IsMain ? "main" : "")">
+                    <div class="im-thumb" style="background-image:url('@image.ImagePath')"></div>
+                    @if (image.IsMain)
+                    {
+                        <span class="im-badge">Үндсэн</span>
+                    }
+                    <div class="im-tools">
+                        @if (!image.IsMain)
+                        {
+                            <button type="button" class="im-tool" title="Үндсэн болгох" disabled="@_busy"
+                                    @onclick="() => SetMainAsync(image.ImageId)">
+                                <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" />
+                            </button>
+                        }
+                        <button type="button" class="im-tool del" title="Устгах" disabled="@_busy"
+                                @onclick="() => DeleteAsync(image.ImageId)">
+                            <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int PropertyId { get; set; }
+    [Parameter] public int ActorAgentId { get; set; }
+
+    private List<PropertyImage> _images = new();
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync() => _images = await ImageRepo.ListAsync(PropertyId);
+
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        _busy = true;
+        try
+        {
+            var files = e.GetMultipleFiles(20);
+            int ok = 0;
+
+            foreach (var file in files)
+            {
+                if (!Storage.IsAllowed(file, out var err))
+                {
+                    Snackbar.Add(err, Severity.Warning);
+                    continue;
+                }
+
+                try
+                {
+                    var uploaded = await Storage.UploadAsync(file, PropertyId);
+                    var res = await ImageRepo.InsertAsync(PropertyId, uploaded.Url, uploaded.PublicId, ActorAgentId);
+
+                    if (res.Ok)
+                    {
+                        ok++;
+                    }
+                    else
+                    {
+                        // Баазад орж чадаагүй бол Cloudinary-оос ч хасна
+                        await Storage.DeleteAsync(uploaded.PublicId);
+                        Snackbar.Add(res.Message, Severity.Error);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"{file.Name}: {ex.Message}", Severity.Error);
+                }
+            }
+
+            if (ok > 0)
+            {
+                Snackbar.Add($"{ok} зураг нэмэгдлээ.", Severity.Success);
+                await ReloadAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SetMainAsync(int imageId)
+    {
+        _busy = true;
+        try
+        {
+            var res = await ImageRepo.SetMainAsync(imageId, ActorAgentId);
+            Snackbar.Add(res.Message, res.Ok ? Severity.Success : Severity.Error);
+            if (res.Ok) await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync(int imageId)
+    {
+        _busy = true;
+        try
+        {
+            var (res, publicId) = await ImageRepo.DeleteAsync(imageId, ActorAgentId);
+            if (res.Ok)
+            {
+                await Storage.DeleteAsync(publicId);
+                Snackbar.Add(res.Message, Severity.Success);
+                await ReloadAsync();
+            }
+            else
+            {
+                Snackbar.Add(res.Message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -1,0 +1,206 @@
+﻿@page "/agents/{Id:int}"
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IAgentRepository AgentRepo
+@inject IPropertyRepository PropertyRepo
+<PageTitle>Агентын мэдээлэл</PageTitle>
+
+<div class="ad2">
+    <SiteHeader />
+
+
+    <div class="ad2-crumbbar">
+        <div class="ad2-container">
+            <a href="/">Нүүр</a> <span>/</span> <a href="/agents">Агентууд</a> <span>/</span>
+            <b>@(_agent?.FullName ?? "…")</b>
+        </div>
+    </div>
+
+    <div class="ad2-container">
+        @if (_loading)
+        {
+            <div class="ad2-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_agent is null)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-8">
+                Ийм агент олдсонгүй. <a href="/agents">Жагсаалт руу буцах</a>
+            </MudAlert>
+        }
+        else
+        {
+            <!-- Профайл -->
+            <div class="prof">
+                <div class="prof-ava" style="background-image:url('https://i.pravatar.cc/200?u=@_agent.AgentId')"></div>
+                <div class="prof-info">
+                    <h1 class="prof-name">@_agent.FullName</h1>
+                    <div class="prof-branch">
+                        <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Small" />
+                        @(_agent.BranchName ?? "Салбар тодорхойгүй")
+                        @if (!string.IsNullOrWhiteSpace(_agent.TopDistrict))
+                        {
+                            <span class="prof-dot">·</span>
+                            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" />
+                            <span>@_agent.TopDistrict</span>
+                        }
+                    </div>
+
+                    <div class="prof-contacts">
+                        @if (!string.IsNullOrWhiteSpace(_agent.Phone))
+                        {
+                            <a href="tel:@_agent.Phone" class="prof-btn">
+                                <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" /> @_agent.Phone
+                            </a>
+                        }
+                        <a href="mailto:@_agent.Email" class="prof-btn outline">
+                            <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" /> @_agent.Email
+                        </a>
+                    </div>
+                </div>
+
+                <div class="prof-stats">
+                    <div class="pstat">
+                        <span class="pstat-num">@_agent.ActiveListings</span>
+                        <span class="pstat-lbl">Идэвхтэй зар</span>
+                    </div>
+                    <div class="pstat">
+                        <span class="pstat-num">@_agent.ClosedDeals</span>
+                        <span class="pstat-lbl">Хаагдсан гэрээ</span>
+                    </div>
+                    <div class="pstat">
+                        <span class="pstat-num">@_agent.TotalListings</span>
+                        <span class="pstat-lbl">Нийт бүртгэл</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Зарууд -->
+            <div class="ad2-listhead">
+                <h2 class="ad2-h2">Идэвхтэй зарууд</h2>
+                @if (_props.Count > 0)
+                {
+                    <MudSelect T="string" Value="_sortBy" ValueChanged="OnSortChangedAsync" Label="Эрэмбэ"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="ad2-sort">
+                        <MudSelectItem T="string" Value="@("newest")">Шинэ нь эхэндээ</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("price_asc")">Үнэ: багаас их</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("price_desc")">Үнэ: ихээс бага</MudSelectItem>
+                    </MudSelect>
+                }
+            </div>
+
+            @if (_propsLoading)
+            {
+                <div class="ad2-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+            }
+            else if (_props.Count == 0)
+            {
+                <div class="ad2-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.HomeWork" Size="Size.Large" />
+                    <p>Энэ агент одоогоор идэвхтэй заргүй байна.</p>
+                </div>
+            }
+            else
+            {
+                <div class="ad2-grid">
+                    @foreach (var it in _props)
+                    {
+                        <a href="/property/@it.PropertyId" class="gcard">
+                            <div class="gcard-img" style="background-image:url('@Img(it)')">
+                                <span class="gcard-badge">@it.TransactionTypeName</span>
+                            </div>
+                            <div class="gcard-body">
+                                <div class="gcard-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                                <div class="gcard-loc"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.DistrictName</div>
+                                <div class="gcard-meta">
+                                    <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0)</span>
+                                    <span><MudIcon Icon="@Icons.Material.Filled.SquareFoot" Size="Size.Small" /> @it.AreaSize.ToString("0.#") м²</span>
+                                </div>
+                                <div class="gcard-foot">
+                                    <span class="gcard-price">@Money(it.Price)</span>
+                                    <span class="gcard-sqm">@(it.PricePerSqm.HasValue ? Money(it.PricePerSqm.Value) + "/м²" : "")</span>
+                                </div>
+                            </div>
+                        </a>
+                    }
+                </div>
+
+                @if (TotalPages > 1)
+                {
+                    <div class="ad2-pager">
+                        <button class="pg-btn" disabled="@(_pageNumber <= 1)" @onclick="() => GoToPageAsync(_pageNumber - 1)">
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" />
+                        </button>
+                        @for (int i = 1; i <= TotalPages; i++)
+                        {
+                            var pnum = i;
+                            <button class="pg-btn @(pnum == _pageNumber ? "on" : "")" @onclick="() => GoToPageAsync(pnum)">@pnum</button>
+                        }
+                        <button class="pg-btn" disabled="@(_pageNumber >= TotalPages)" @onclick="() => GoToPageAsync(_pageNumber + 1)">
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                        </button>
+                    </div>
+                }
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true, _propsLoading;
+    private AgentPublicDetail? _agent;
+    private List<PropertyListItem> _props = new();
+    private int _propsTotal;
+
+    private string _sortBy = "newest";
+    private int _pageNumber = 1;
+    private const int PageSize = 9;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _pageNumber = 1;
+
+        _agent = await AgentRepo.GetPublicAsync(Id);
+        if (_agent is not null) await LoadPropsAsync();
+
+        _loading = false;
+    }
+
+    private async Task LoadPropsAsync()
+    {
+        _propsLoading = true;
+        StateHasChanged();
+
+        var res = await PropertyRepo.ListByAgentPublicAsync(Id, _sortBy, _pageNumber, PageSize);
+        _props = res.Items.ToList();
+        _propsTotal = res.Total;
+
+        _propsLoading = false;
+    }
+
+    private async Task OnSortChangedAsync(string value)
+    {
+        _sortBy = value;
+        _pageNumber = 1;
+        await LoadPropsAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        _pageNumber = page;
+        await LoadPropsAsync();
+    }
+
+    private int TotalPages => (int)Math.Ceiling(_propsTotal / (double)PageSize);
+
+    private string Img(PropertyListItem it) =>
+        string.IsNullOrEmpty(it.MainImagePath)
+            ? $"https://picsum.photos/seed/prop{it.PropertyId}/500/340"
+            : it.MainImagePath;
+
+    private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+}

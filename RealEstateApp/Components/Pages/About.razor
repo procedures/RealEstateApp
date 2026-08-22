@@ -1,0 +1,119 @@
+﻿@page "/about"
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject ISiteRepository SiteRepo
+<PageTitle>@(_page?.Title ?? "Бидний тухай")</PageTitle>
+
+<div class="ab">
+    <SiteHeader />
+
+    @if (_loading)
+    {
+        <div class="ab-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+    }
+    else
+    {
+        <div class="ab-hero">
+            <div class="ab-container">
+                <h1 class="ab-h1">@(_page?.Title ?? "Бидний тухай")</h1>
+                @if (!string.IsNullOrWhiteSpace(_page?.Subtitle))
+                {
+                    <p class="ab-sub">@_page.Subtitle</p>
+                }
+            </div>
+        </div>
+
+        <div class="ab-container">
+            <!-- Танилцуулга -->
+            <section class="ab-intro">
+                <div class="ab-text">
+                    @foreach (var para in _page?.Paragraphs ?? Enumerable.Empty<string>())
+                    {
+                        <p>@para</p>
+                    }
+                </div>
+                <div class="ab-img" style="background-image:url('@HeroImage')"></div>
+            </section>
+
+            <!-- Тоон үзүүлэлт -->
+            @if (_stats.Count > 0)
+            {
+                <section class="ab-stats">
+                    @foreach (var s in _stats)
+                    {
+                        <div class="ab-stat">
+                            <div class="ab-statnum">@s.Body<span>+</span></div>
+                            <div class="ab-statlbl">@s.Title</div>
+                        </div>
+                    }
+                </section>
+            }
+
+            <!-- Давуу тал -->
+            @if (_features.Count > 0)
+            {
+                <h2 class="ab-h2">Яагаад бид гэж?</h2>
+                <section class="ab-features">
+                    @foreach (var f in _features)
+                    {
+                        <div class="ab-feat">
+                            <div class="ab-featic"><MudIcon Icon="@IconOf(f.Icon)" /></div>
+                            <div class="ab-feattitle">@f.Title</div>
+                            <div class="ab-featbody">@f.Body</div>
+                        </div>
+                    }
+                </section>
+            }
+
+            <!-- CTA -->
+            <section class="ab-cta-box">
+                <div>
+                    <h3>Асуух зүйл байна уу?</h3>
+                    <p>Манай мэргэжлийн баг танд туслахад бэлэн.</p>
+                </div>
+                <a href="/contact" class="ab-ctabtn">Холбоо барих</a>
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private SitePage? _page;
+    private SiteSettingsBag _s = new(Array.Empty<SiteSetting>());
+    private List<SiteBlock> _features = new();
+    private List<SiteBlock> _stats = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _s = await SiteRepo.GetSettingsAsync();
+        _page = await SiteRepo.GetPageAsync("about");
+
+        var blocks = await SiteRepo.ListBlocksAsync("about");
+        _features = blocks.Where(b => b.BlockType == "feature").ToList();
+        _stats = blocks.Where(b => b.BlockType == "stat").ToList();
+
+        _loading = false;
+    }
+
+    private string HeroImage =>
+        string.IsNullOrWhiteSpace(_page?.ImageUrl)
+            ? "https://picsum.photos/seed/aboutus/800/600"
+            : _page!.ImageUrl!;
+
+    // Баазад хадгалсан icon нэрийг MudBlazor icon болгох
+    private static string IconOf(string? name) => name switch
+    {
+        "Verified" => Icons.Material.Filled.Verified,
+        "Groups" => Icons.Material.Filled.Groups,
+        "Gavel" => Icons.Material.Filled.Gavel,
+        "SupportAgent" => Icons.Material.Filled.SupportAgent,
+        "Home" => Icons.Material.Filled.Home,
+        "Handshake" => Icons.Material.Filled.Handshake,
+        "Star" => Icons.Material.Filled.Star,
+        "Security" => Icons.Material.Filled.Security,
+        "Insights" => Icons.Material.Filled.Insights,
+        _ => Icons.Material.Filled.CheckCircle
+    };
+}

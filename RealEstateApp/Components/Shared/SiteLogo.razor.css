@@ -1,0 +1,127 @@
+﻿.logo {
+    --lg: var(--mud-palette-primary, #2c7a7b); /* ← нөөц өнгө нэмсэн */
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    text-decoration: none;
+    color: #1a202c;
+    font-family: Roboto, sans-serif;
+    line-height: 1.1;
+    transition: opacity .15s;
+}
+
+    .logo:hover {
+        opacity: .82;
+    }
+
+.logo-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--lg); /* ← энгийн дүүргэлт (нөөц) */
+    background-image: linear-gradient(135deg, var(--lg), rgba(0,0,0,.28));
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.logo-name {
+    font-weight: 800;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+}
+
+.logo-slogan {
+    color: #8a949a;
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ===== Хэмжээ ===== */
+.logo.small .logo-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+}
+
+.logo.small .logo-name {
+    font-size: .95rem;
+}
+
+.logo.small .logo-slogan {
+    font-size: .66rem;
+}
+
+.logo.small ::deep .mud-icon-root {
+    font-size: 1.1rem;
+}
+
+.logo.normal .logo-mark {
+    width: 36px;
+    height: 36px;
+}
+
+.logo.normal .logo-name {
+    font-size: 1.12rem;
+}
+
+.logo.normal .logo-slogan {
+    font-size: .72rem;
+    margin-top: 1px;
+}
+
+.logo.normal ::deep .mud-icon-root {
+    font-size: 1.35rem;
+}
+
+.logo.large .logo-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+}
+
+.logo.large .logo-name {
+    font-size: 1.45rem;
+}
+
+.logo.large .logo-slogan {
+    font-size: .82rem;
+    margin-top: 2px;
+}
+
+.logo.large ::deep .mud-icon-root {
+    font-size: 1.75rem;
+}
+
+/* Бараан дэвсгэр дээр (footer гэх мэт) */
+.logo.on-dark {
+    color: #fff;
+}
+
+    .logo.on-dark .logo-mark {
+        background: rgba(255,255,255,.16);
+        box-shadow: none;
+    }
+
+    .logo.on-dark .logo-slogan {
+        color: rgba(255,255,255,.7);
+    }
+
+@media (max-width: 520px) {
+    .logo-slogan {
+        display: none;
+    }
+
+    .logo.normal .logo-name {
+        font-size: 1rem;
+    }
+}

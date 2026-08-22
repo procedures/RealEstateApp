@@ -1,0 +1,201 @@
+﻿@using MudBlazor
+@using Microsoft.AspNetCore.Components.Routing
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@implements IDisposable
+@inject NavigationManager Nav
+@inject IViewingRepository ViewingRepo
+
+<header class="hd">
+    <div class="hd-inner">
+        <SiteLogo />
+
+        <!-- Гол цэс -->
+        <nav class="hd-nav @(_navOpen ? "open" : "")">
+            @foreach (var link in Links)
+            {
+                <a href="@link.Href" class="@(IsActive(link.Href) ? "active" : "")">@link.Text</a>
+            }
+        </nav>
+
+        <div class="hd-right">
+            <AuthorizeView>
+                <Authorized Context="auth">
+                    <div class="hd-account">
+                        <button type="button" class="hd-user @(_userOpen ? "on" : "")" @onclick="ToggleUser">
+                            <div class="hd-avawrap">
+                                <div class="hd-ava">@Initial(auth.User.GetFullName())</div>
+                                @if (_newViewings > 0)
+                                {
+                                    <span class="hd-badge">@(_newViewings > 9 ? "9+" : _newViewings.ToString())</span>
+                                }
+                            </div>
+                            <div class="hd-uinfo">
+                                <span class="hd-uname">@ShortName(auth.User.GetFullName())</span>
+                                <span class="hd-urole">@(auth.User.IsAdmin() ? "Админ" : "Агент")</span>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.ExpandMore" Size="Size.Small" Class="hd-caret" />
+                        </button>
+
+                        @if (_userOpen)
+                        {
+                            <div class="hd-drop">
+                                <div class="hd-mhead">
+                                    <div class="hd-mname">@auth.User.GetFullName()</div>
+                                    <div class="hd-mrole">@(auth.User.IsAdmin() ? "Системийн админ" : "Агент")</div>
+                                </div>
+
+                                <a href="/agent" class="hd-mitem">
+                                    <MudIcon Icon="@Icons.Material.Filled.HomeWork" Size="Size.Small" /> Миний зарууд
+                                </a>
+                                <a href="/agent/viewings" class="hd-mitem">
+                                    <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Size="Size.Small" />
+                                    Үзлэгийн хүсэлт
+                                    @if (_newViewings > 0)
+                                    {
+                                        <span class="hd-mcount">@_newViewings</span>
+                                    }
+                                </a>
+                                <a href="/agent/property/new" class="hd-mitem">
+                                    <MudIcon Icon="@Icons.Material.Filled.AddHome" Size="Size.Small" /> Шинэ хөрөнгө
+                                </a>
+
+                                @if (auth.User.IsAdmin())
+                                {
+                                    <div class="hd-msep"></div>
+                                    <div class="hd-mlabel">Админ</div>
+
+                                    <a href="/admin" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.Dashboard" Size="Size.Small" /> Админ самбар
+                                    </a>
+                                    <a href="/admin/agents" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Small" /> Агент удирдах
+                                    </a>
+                                    <a href="/admin/report" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" /> Агентын тайлан
+                                    </a>
+                                    <a href="/admin/viewings" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Size="Size.Small" />
+                                        Үзлэгийн хүсэлт
+                                        @if (_newViewings > 0)
+                                        {
+                                            <span class="hd-mcount">@_newViewings</span>
+                                        }
+                                    </a>
+                                    <a href="/admin/closures" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.AssignmentTurnedIn" Size="Size.Small" /> Хаалтын хүсэлт
+                                    </a>
+                                    <a href="/admin/messages" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" /> Ирсэн мессеж
+                                    </a>
+                                    <a href="/admin/site" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" /> Сайтын агуулга
+                                    </a>
+                                }
+
+                                <div class="hd-msep"></div>
+                                <a href="/logout" class="hd-mitem danger">
+                                    <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" /> Гарах
+                                </a>
+                            </div>
+                        }
+                    </div>
+                </Authorized>
+
+                <NotAuthorized>
+                    <a href="/login" class="hd-login">
+                        <MudIcon Icon="@Icons.Material.Filled.Login" Size="Size.Small" /> Нэвтрэх
+                    </a>
+                </NotAuthorized>
+            </AuthorizeView>
+
+            <button type="button" class="hd-burger" @onclick="ToggleNav" aria-label="Цэс">
+                <MudIcon Icon="@(_navOpen ? Icons.Material.Filled.Close : Icons.Material.Filled.Menu)" />
+            </button>
+        </div>
+    </div>
+
+    @* Гадуур дарахад хаах *@
+    @if (_userOpen || _navOpen)
+    {
+        <div class="hd-backdrop" @onclick="CloseAll"></div>
+    }
+</header>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private record NavLink(string Href, string Text);
+
+    private static readonly NavLink[] Links =
+    {
+        new("/", "Нүүр"),
+        new("/properties", "Зарууд"),
+        new("/agents", "Агентууд"),
+        new("/about", "Бидний тухай"),
+        new("/contact", "Холбоо барих"),
+    };
+
+    private bool _navOpen, _userOpen;
+    private int _newViewings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        await LoadCountAsync();
+    }
+
+    private async Task LoadCountAsync()
+    {
+        if (AuthState is null) return;
+
+        try
+        {
+            var auth = await AuthState;
+            if (auth.User.Identity?.IsAuthenticated != true)
+            {
+                _newViewings = 0;
+                return;
+            }
+
+            // Админ бүгдийг, агент зөвхөн өөрийнхийг
+            int? scope = auth.User.IsAdmin() ? null : auth.User.GetAgentId();
+            _newViewings = await ViewingRepo.NewCountAsync(scope);
+        }
+        catch
+        {
+            _newViewings = 0;
+        }
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _navOpen = false;
+        _userOpen = false;
+        await LoadCountAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleUser() { _userOpen = !_userOpen; _navOpen = false; }
+    private void ToggleNav() { _navOpen = !_navOpen; _userOpen = false; }
+    private void CloseAll() { _navOpen = false; _userOpen = false; }
+
+    private bool IsActive(string href)
+    {
+        var path = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].TrimEnd('/');
+        if (href == "/") return path == "/";
+        return path.StartsWith(href, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
+
+    private static string ShortName(string full)
+    {
+        if (string.IsNullOrWhiteSpace(full)) return "";
+        var parts = full.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? $"{parts[0][0]}. {parts[^1]}" : full;
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

@@ -1,0 +1,374 @@
+﻿@page "/admin/site"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@using RealEstateApp.Services
+@inject ISiteRepository SiteRepo
+@inject ISnackbar Snackbar
+@inject ISiteBrandService Brand
+
+<PageTitle>Сайтын агуулга</PageTitle>
+
+<div class="ad">
+    <SiteHeader />
+
+    <div class="ad-container">
+        <div class="ad-top">
+            <h1 class="ad-h1">Сайтын агуулга</h1>
+            <p class="ad-sub">Холбоо барих мэдээлэл, хуудасны текстийг эндээс удирдана</p>
+        </div>
+
+        <div class="ad-tabs">
+            <button class="ad-tab @(_tab == 0 ? "active" : "")" @onclick="() => _tab = 0">Холбоо барих</button>
+            <button class="ad-tab @(_tab == 1 ? "active" : "")" @onclick="() => _tab = 1">Бидний тухай</button>
+            <button class="ad-tab @(_tab == 2 ? "active" : "")" @onclick="() => _tab = 2">Блокууд</button>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ad-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else
+        {
+            @* ===================== 1. ХОЛБОО БАРИХ ===================== *@
+            @if (_tab == 0)
+            {
+                <div class="sc-card">
+                    <h3 class="sc-h">Хуудасны толгой</h3>
+                    <div class="sc-grid">
+                        <MudTextField T="string" @bind-Value="_contactPage.Title" Label="Гарчиг"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudTextField T="string" @bind-Value="_contactPage.Subtitle" Label="Дэд гарчиг"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <div class="sc-full">
+                            <MudTextField T="string" @bind-Value="_contactPage.Content" Label="Маягтын дээрх тайлбар"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
+                        </div>
+                    </div>
+                    <div class="sc-actions">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                                   StartIcon="@Icons.Material.Filled.Save"
+                                   OnClick="() => SavePageAsync(_contactPage)">Хадгалах</MudButton>
+                    </div>
+                </div>
+
+                @foreach (var cat in new[] { "contact", "social", "general" })
+                {
+                    var items = _settings.Where(s => s.Category == cat).ToList();
+                    if (items.Count == 0) continue;
+
+                    <div class="sc-card">
+                        <h3 class="sc-h">@CategoryName(cat)</h3>
+                        <div class="sc-grid">
+                            @foreach (var s in items)
+                            {
+                                var item = s;
+                                <div class="@(item.InputType == "textarea" ? "sc-full" : "")">
+                                    <MudTextField T="string" @bind-Value="item.SettingValue" Label="@item.Label"
+                                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                  Lines="@(item.InputType == "textarea" ? 3 : 1)"
+                                                  HelperText="@HintOf(item)" />
+                                </div>
+                            }
+                        </div>
+                        <div class="sc-actions">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                                       StartIcon="@Icons.Material.Filled.Save"
+                                       OnClick="() => SaveCategoryAsync(cat)">Хадгалах</MudButton>
+                        </div>
+                    </div>
+                }
+            }
+
+            @* ===================== 2. БИДНИЙ ТУХАЙ ===================== *@
+            @if (_tab == 1)
+            {
+                <div class="sc-card">
+                    <h3 class="sc-h">Бидний тухай хуудас</h3>
+                    <div class="sc-grid">
+                        <MudTextField T="string" @bind-Value="_aboutPage.Title" Label="Гарчиг"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudTextField T="string" @bind-Value="_aboutPage.ImageUrl" Label="Зургийн URL"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      HelperText="Хоосон бол түр зуурын зураг харагдана" />
+                        <div class="sc-full">
+                            <MudTextField T="string" @bind-Value="_aboutPage.Subtitle" Label="Дэд гарчиг"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </div>
+                        <div class="sc-full">
+                            <MudTextField T="string" @bind-Value="_aboutPage.Content" Label="Үндсэн текст"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Lines="8"
+                                          HelperText="Мөр таслах бүрт шинэ догол мөр үүснэ" />
+                        </div>
+                    </div>
+                    <div class="sc-actions">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                                   StartIcon="@Icons.Material.Filled.Save"
+                                   OnClick="() => SavePageAsync(_aboutPage)">Хадгалах</MudButton>
+                    </div>
+                </div>
+            }
+
+            @* ======================= 3. БЛОКУУД ======================== *@
+            @if (_tab == 2)
+            {
+                <div class="sc-card">
+                    <div class="sc-headrow">
+                        <h3 class="sc-h">Давуу талын картууд</h3>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick='() => AddBlock("feature")'>Карт нэмэх</MudButton>
+                    </div>
+
+                    @if (_features.Count == 0)
+                    {
+                        <p class="sc-none">Карт байхгүй байна.</p>
+                    }
+
+                    @foreach (var b in _features)
+                    {
+                        var block = b;
+                        <div class="bl-row">
+                            <div class="bl-grid">
+                                <MudSelect T="string" @bind-Value="block.Icon" Label="Дүрс"
+                                           Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                                    @foreach (var ic in IconNames)
+                                    {
+                                        <MudSelectItem T="string" Value="@ic">@ic</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudTextField T="string" @bind-Value="block.Title" Label="Гарчиг"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudNumericField T="int" @bind-Value="block.SortOrder" Label="Дараалал"
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                                <div class="sc-full">
+                                    <MudTextField T="string" @bind-Value="block.Body" Label="Тайлбар"
+                                                  Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
+                                </div>
+                            </div>
+                            <div class="bl-tools">
+                                <MudCheckBox T="bool" @bind-Value="block.IsActive" Label="Идэвхтэй"
+                                             Color="Color.Primary" Dense="true" />
+                                <button type="button" class="ad-btn" disabled="@_busy"
+                                        @onclick="() => SaveBlockAsync(block)">
+                                    Хадгалах
+                                </button>
+                                <button type="button" class="ad-btn danger" disabled="@_busy"
+                                        @onclick="() => DeleteBlockAsync(block)">
+                                    Устгах
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="sc-card">
+                    <div class="sc-headrow">
+                        <h3 class="sc-h">Тоон үзүүлэлт</h3>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick='() => AddBlock("stat")'>Үзүүлэлт нэмэх</MudButton>
+                    </div>
+
+                    @if (_stats.Count == 0)
+                    {
+                        <p class="sc-none">Үзүүлэлт байхгүй байна.</p>
+                    }
+
+                    @foreach (var b in _stats)
+                    {
+                        var block = b;
+                        <div class="bl-row">
+                            <div class="bl-grid stat">
+                                <MudTextField T="string" @bind-Value="block.Title" Label="Нэр"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                                              HelperText="Жишээ: Амжилттай гэрээ" />
+                                <MudTextField T="string" @bind-Value="block.Body" Label="Тоо"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                                              HelperText="Жишээ: 2400" />
+                                <MudNumericField T="int" @bind-Value="block.SortOrder" Label="Дараалал"
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+                            </div>
+                            <div class="bl-tools">
+                                <MudCheckBox T="bool" @bind-Value="block.IsActive" Label="Идэвхтэй"
+                                             Color="Color.Primary" Dense="true" />
+                                <button type="button" class="ad-btn" disabled="@_busy"
+                                        @onclick="() => SaveBlockAsync(block)">
+                                    Хадгалах
+                                </button>
+                                <button type="button" class="ad-btn danger" disabled="@_busy"
+                                        @onclick="() => DeleteBlockAsync(block)">
+                                    Устгах
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="sc-preview">
+                <MudIcon Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" />
+                <span>Хадгалсны дараа</span>
+                <a href="/about" target="_blank">Бидний тухай</a>
+                <span>·</span>
+                <a href="/contact" target="_blank">Холбоо барих</a>
+                <span>хуудсаас шалгана уу.</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private static readonly string[] IconNames =
+    {
+        "Verified", "Groups", "Gavel", "SupportAgent",
+        "Home", "Handshake", "Star", "Security", "Insights"
+    };
+
+    private bool _loading = true, _busy;
+    private int _adminId, _tab;
+    private string _userName = "";
+
+    private List<SiteSetting> _settings = new();
+    private SitePage _aboutPage = new() { PageKey = "about" };
+    private SitePage _contactPage = new() { PageKey = "contact" };
+    private List<SiteBlock> _features = new();
+    private List<SiteBlock> _stats = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _adminId = auth.User.GetAgentId();
+        _userName = auth.User.GetFullName();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var bag = await SiteRepo.GetSettingsAsync();
+        _settings = bag.All.ToList();
+
+        _aboutPage = await SiteRepo.GetPageAsync("about") ?? new SitePage { PageKey = "about" };
+        _contactPage = await SiteRepo.GetPageAsync("contact") ?? new SitePage { PageKey = "contact" };
+
+        var blocks = await SiteRepo.ListBlocksAsync("about", activeOnly: false);
+        _features = blocks.Where(b => b.BlockType == "feature").ToList();
+        _stats = blocks.Where(b => b.BlockType == "stat").ToList();
+
+        _loading = false;
+    }
+
+    private async Task SaveCategoryAsync(string category)
+    {
+        _busy = true;
+        int ok = 0;
+        try
+        {
+            foreach (var s in _settings.Where(x => x.Category == category))
+            {
+                var r = await SiteRepo.SaveSettingAsync(s.SettingKey, s.SettingValue, _adminId);
+                if (r.Ok) ok++;
+                else Snackbar.Add($"{s.Label}: {r.Message}", Severity.Error);
+            }
+
+            if (ok > 0)
+            {
+                Brand.Invalidate();   // нэр/уриа өөрчлөгдсөн бол кэшийг шинэчилнэ
+                Snackbar.Add($"{ok} тохиргоо хадгалагдлаа.", Severity.Success);
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task SavePageAsync(SitePage page)
+    {
+        _busy = true;
+        try
+        {
+            var r = await SiteRepo.SavePageAsync(page, _adminId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private void AddBlock(string type)
+    {
+        var list = type == "feature" ? _features : _stats;
+        var next = list.Count == 0 ? 1 : list.Max(x => x.SortOrder) + 1;
+
+        list.Add(new SiteBlock
+        {
+            BlockId = 0,
+            PageKey = "about",
+            BlockType = type,
+            Icon = type == "feature" ? "Verified" : null,
+            Title = "",
+            Body = "",
+            SortOrder = next,
+            IsActive = true
+        });
+    }
+
+    private async Task SaveBlockAsync(SiteBlock block)
+    {
+        if (string.IsNullOrWhiteSpace(block.Title))
+        {
+            Snackbar.Add("Гарчиг оруулна уу.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var r = await SiteRepo.SaveBlockAsync(block, _adminId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task DeleteBlockAsync(SiteBlock block)
+    {
+        // Хадгалаагүй шинэ мөрийг зүгээр л жагсаалтаас хасна
+        if (block.BlockId == 0)
+        {
+            (block.BlockType == "feature" ? _features : _stats).Remove(block);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var r = await SiteRepo.DeleteBlockAsync(block.BlockId, _adminId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private static string CategoryName(string cat) => cat switch
+    {
+        "contact" => "Холбоо барих мэдээлэл",
+        "social" => "Сошиал сүлжээ",
+        "general" => "Ерөнхий",
+        _ => cat
+    };
+
+    private static string HintOf(SiteSetting s) => s.SettingKey switch
+    {
+        "work_hours" => "Мөр бүрт нэг мөр харагдана",
+        "map_embed" => "Google Maps → Share → Embed a map → iframe доторх src утгыг хуулна",
+        "social_facebook" or "social_instagram" or "social_twitter" => "Хоосон бол дүрс харагдахгүй",
+        _ => ""
+    };
+}

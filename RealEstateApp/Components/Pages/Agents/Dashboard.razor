@@ -1,0 +1,361 @@
+﻿@page "/agent"
+@attribute [Authorize]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@using RealEstateApp.Services
+@inject IPropertyRepository PropertyRepo
+@inject IViewingRepository ViewingRepo
+@inject IDashboardRepository DashboardRepo
+@inject IImageStorageService Storage
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+<PageTitle>Миний зарууд</PageTitle>
+
+<div class="ag">
+    <SiteHeader />
+
+    <div class="ag-container">
+        <div class="ag-top">
+            <div>
+                <h1 class="ag-h1">Миний зарууд</h1>
+                <p class="ag-sub">Нийт <b>@_total</b> хөрөнгө бүртгэсэн байна</p>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => Nav.NavigateTo("/agent/property/new"))">
+                Шинэ хөрөнгө бүртгэх
+            </MudButton>
+        </div>
+
+        @* ============ Миний статистик ============ *@
+        @if (_stats is not null)
+        {
+            <div class="ag-stats">
+                <div class="ag-stat">
+                    <div class="ag-stat-num">@_stats.TotalProperties</div>
+                    <div class="ag-stat-lbl">Нийт хөрөнгө</div>
+                </div>
+                <div class="ag-stat">
+                    <div class="ag-stat-num">@_stats.PublishedCount</div>
+                    <div class="ag-stat-lbl">Нийтлэгдсэн</div>
+                </div>
+                <div class="ag-stat">
+                    <div class="ag-stat-num">@_stats.ClosedCount</div>
+                    <div class="ag-stat-lbl">Хаагдсан</div>
+                </div>
+                <div class="ag-stat">
+                    <div class="ag-stat-num">@_stats.ApprovedClosures</div>
+                    <div class="ag-stat-lbl">Хаалт хийсэн</div>
+                </div>
+                <div class="ag-stat">
+                    <div class="ag-stat-num">@_stats.NewViewings</div>
+                    <div class="ag-stat-lbl">Шинэ үзлэг</div>
+                </div>
+                <div class="ag-stat">
+                    <div class="ag-stat-num">@Money(_stats.SoldTotalAmount)</div>
+                    <div class="ag-stat-lbl">Борлуулалт</div>
+                </div>
+            </div>
+        }
+
+        @* ============ Шинэ үзлэгийн хүсэлт ============ *@
+        @if (_newViewings.Count > 0)
+        {
+            <div class="vwbox">
+                <div class="vwbox-head">
+                    <h3 class="vwbox-h">
+                        <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" Size="Size.Small" />
+                        Шинэ үзлэгийн хүсэлт
+                        <span class="vwbox-count">@_newViewingCount</span>
+                    </h3>
+                    <a href="/agent/viewings" class="vwbox-all">Бүгдийг харах →</a>
+                </div>
+
+                <div class="vwbox-list">
+                    @foreach (var v in _newViewings)
+                    {
+                        <a href="/agent/viewings" class="vwrow">
+                            <div class="vwrow-ava">@Initial(v.FullName)</div>
+                            <div class="vwrow-main">
+                                <div class="vwrow-name">@v.FullName</div>
+                                <div class="vwrow-prop">@(v.ComplexName ?? "Хөрөнгө") · @v.DistrictName</div>
+                            </div>
+                            <div class="vwrow-side">
+                                <span class="vwrow-phone">
+                                    <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" /> @v.Phone
+                                </span>
+                                @if (v.PreferredDate.HasValue)
+                                {
+                                    <span class="vwrow-date">
+                                        <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" />
+                                        @v.PreferredDate.Value.ToString("MM-dd")
+                                    </span>
+                                }
+                            </div>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ================ Төлөвийн шүүлт ================ *@
+        <div class="ag-tabs">
+            @foreach (var t in Tabs)
+            {
+                var tab = t;
+                <button class="ag-tab @(_status == tab.Status ? "active" : "")"
+                        @onclick="() => SelectTab(tab.Status)">
+                    @tab.Label
+                </button>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ag-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="ag-empty">
+                <MudIcon Icon="@Icons.Material.Filled.HomeWork" Size="Size.Large" />
+                <p>Энэ төлөвт хөрөнгө байхгүй байна.</p>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           OnClick="@(() => Nav.NavigateTo("/agent/property/new"))">
+                    Эхний хөрөнгөө бүртгэх
+                </MudButton>
+            </div>
+        }
+        else
+        {
+            <div class="ag-list">
+                @foreach (var it in _items)
+                {
+                    <div class="ag-card">
+                        <div class="ag-thumb" style="background-image:url('@Img(it)')">
+                            @if (it.ImageCount > 0)
+                            {
+                                <span class="ag-imgcount">
+                                    <MudIcon Icon="@Icons.Material.Filled.PhotoLibrary" Size="Size.Small" /> @it.ImageCount
+                                </span>
+                            }
+                        </div>
+                        <div class="ag-body">
+                            <div class="ag-cardtop">
+                                <div>
+                                    <div class="ag-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                                    <div class="ag-addr">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.Address
+                                    </div>
+                                </div>
+                                <span class="ag-status" style="background:@StatusColor(it.Status)">
+                                    @StatusLabel(it.Status)
+                                </span>
+                            </div>
+
+                            <div class="ag-meta">
+                                <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0) өрөө</span>
+                                <span><MudIcon Icon="@Icons.Material.Filled.SquareFoot" Size="Size.Small" /> @it.AreaSize.ToString("0.#") м²</span>
+                                <span><MudIcon Icon="@Icons.Material.Filled.Payments" Size="Size.Small" /> @(it.PricePerSqm.HasValue ? Money(it.PricePerSqm.Value) : "-") /м²</span>
+                                @if (!string.IsNullOrEmpty(it.ContractNumber))
+                                {
+                                    <span><MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" /> @it.ContractNumber</span>
+                                }
+                            </div>
+
+                            <div class="ag-foot">
+                                <span class="ag-price">@Money(it.Price)</span>
+                                <div class="ag-actions">
+                                    @if (_confirmDeleteId == it.PropertyId)
+                                    {
+                                        <span class="ag-confirm-txt">Зураг, гэрээтэй нь бүрмөсөн устгах уу?</span>
+                                        <button type="button" class="ag-btn danger" disabled="@_busy"
+                                                @onclick="() => DeleteAsync(it.PropertyId)">
+                                            Устгах
+                                        </button>
+                                        <button type="button" class="ag-btn outline" disabled="@_busy"
+                                                @onclick="() => _confirmDeleteId = null">
+                                            Болих
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <a href="/property/@it.PropertyId" class="ag-btn outline">Харах</a>
+
+                                        @if (it.Status != 5)
+                                        {
+                                            <a href="/agent/property/@it.PropertyId/edit" class="ag-btn outline">Засах</a>
+                                        }
+                                        @if (it.Status == 3)
+                                        {
+                                            <a href="/agent/property/@it.PropertyId/close" class="ag-btn">Хаалт хийх</a>
+                                        }
+                                        @if (it.Status != 5)
+                                        {
+                                            <button type="button" class="ag-btn danger" disabled="@_busy"
+                                                    @onclick="() => _confirmDeleteId = it.PropertyId">
+                                                Устгах
+                                            </button>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private static readonly (int? Status, string Label)[] Tabs =
+    {
+        (null, "Бүгд"),
+        (2, "Хүлээгдэж буй"),
+        (3, "Нийтлэгдсэн"),
+        (4, "Хаалт хүсэлт"),
+        (5, "Хаагдсан"),
+        (6, "Цуцлагдсан"),
+    };
+
+    private bool _loading = true, _busy, _isAdmin;
+    private int _agentId;
+    private int? _status;
+    private int? _confirmDeleteId;
+    private int _total;
+    private List<PropertyListItem> _items = new();
+
+    private List<ViewingItem> _newViewings = new();
+    private int _newViewingCount;
+
+    private AgentDashboardStats? _stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _agentId = auth.User.GetAgentId();
+        _isAdmin = auth.User.IsAdmin();
+
+        await LoadStatsAsync();
+        await LoadAsync();
+        await LoadViewingsAsync();
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        try
+        {
+            _stats = await DashboardRepo.GetAgentStatsAsync(_agentId);
+        }
+        catch
+        {
+            _stats = null;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _confirmDeleteId = null;
+
+        var res = await PropertyRepo.ListByAgentAsync(_agentId, _status, 1, 50);
+        _items = res.Items.ToList();
+        _total = res.Total;
+
+        _loading = false;
+    }
+
+    private async Task LoadViewingsAsync()
+    {
+        try
+        {
+            int? scope = _isAdmin ? null : _agentId;
+
+            // Зөвхөн шинэ (Status = 1), эхний 3
+            var res = await ViewingRepo.ListAsync(scope, 1, 1, 3);
+            _newViewings = res.Items.ToList();
+            _newViewingCount = res.Total;
+        }
+        catch
+        {
+            _newViewings = new();
+            _newViewingCount = 0;
+        }
+    }
+
+    private async Task SelectTab(int? status)
+    {
+        _status = status;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        _busy = true;
+        try
+        {
+            var (result, publicIds) = await PropertyRepo.DeleteAsync(id, _agentId);
+
+            if (result.Ok)
+            {
+                // Баазаас устсаны дараа Cloudinary-оос зургуудыг хасна
+                foreach (var pid in publicIds)
+                {
+                    try { await Storage.DeleteAsync(pid); }
+                    catch { /* Cloudinary дээр үлдсэн ч бааз цэвэр */ }
+                }
+
+                Snackbar.Add(result.Message, Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+            _confirmDeleteId = null;
+        }
+    }
+
+    private string Img(PropertyListItem it) =>
+        string.IsNullOrEmpty(it.MainImagePath)
+            ? $"https://picsum.photos/seed/prop{it.PropertyId * 100}/300/220"
+            : it.MainImagePath;
+
+    private string Money(decimal v) =>
+        v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
+
+    private static string StatusLabel(int s) => s switch
+    {
+        1 => "Ноорог",
+        2 => "Хүлээгдэж буй",
+        3 => "Нийтлэгдсэн",
+        4 => "Хаалт хүсэлт",
+        5 => "Хаагдсан",
+        6 => "Цуцлагдсан",
+        _ => "-"
+    };
+
+    private static string StatusColor(int s) => s switch
+    {
+        3 => "#2c7a7b",
+        2 => "#dd6b20",
+        4 => "#3182ce",
+        5 => "#718096",
+        6 => "#e53e3e",
+        _ => "#a0aec0"
+    };
+}

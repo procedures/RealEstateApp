@@ -1,0 +1,96 @@
+﻿@* @page "/register" *@
+@attribute [ExcludeFromInteractiveRouting]
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IAgentRepository AgentRepo
+@inject IPasswordHasher<AgentAccount> Hasher
+@inject NavigationManager Nav
+@layout EmptyAuthLayout
+<PageTitle>Бүртгүүлэх</PageTitle>
+
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div style="display:flex;justify-content:center;margin-bottom:18px;">
+            <SiteLogo ShowSlogan="true" />
+        </div>
+        <h1 class="auth-h">Агент бүртгүүлэх</h1>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="@(_ok ? "auth-ok" : "auth-error")">@_message</div>
+        }
+        <div class="auth-form">
+            <EditForm Model="Input" method="post" OnValidSubmit="DoRegisterAsync" FormName="registerForm" class="auth-form">
+                <DataAnnotationsValidator />
+
+                <div class="auth-row">
+                    <div>
+                        <label class="auth-label">Овог</label>
+                        <InputText @bind-Value="Input.LastName" class="auth-input" />
+                        <ValidationMessage For="() => Input.LastName" class="auth-vmsg" />
+                    </div>
+                    <div>
+                        <label class="auth-label">Нэр</label>
+                        <InputText @bind-Value="Input.FirstName" class="auth-input" />
+                        <ValidationMessage For="() => Input.FirstName" class="auth-vmsg" />
+                    </div>
+                </div>
+
+                <label class="auth-label">Утас</label>
+                <InputText @bind-Value="Input.Phone" class="auth-input" />
+
+                <label class="auth-label">И-мэйл</label>
+                <InputText @bind-Value="Input.Email" class="auth-input" />
+                <ValidationMessage For="() => Input.Email" class="auth-vmsg" />
+
+                <label class="auth-label">Нууц үг</label>
+                <InputText @bind-Value="Input.Password" type="password" class="auth-input" />
+                <ValidationMessage For="() => Input.Password" class="auth-vmsg" />
+
+                <button type="submit" class="auth-btn">Бүртгүүлэх</button>
+            </EditForm>
+        </div>
+        <div class="auth-foot">
+            Бүртгэлтэй юу? <a href="/login">Нэвтрэх</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm] private RegisterInput Input { get; set; } = new();
+
+    private string? _message;
+    private bool _ok;
+
+    private async Task DoRegisterAsync()
+    {
+        var hash = Hasher.HashPassword(new AgentAccount(), Input.Password);
+
+        var (result, newId) = await AgentRepo.InsertAsync(
+            Input.LastName.Trim(), Input.FirstName.Trim(), Input.Phone?.Trim(),
+            Input.Email.Trim(), null, hash);
+
+        _ok = result.Ok;
+        _message = result.Message;
+
+        if (result.Ok)
+            Input = new RegisterInput();
+    }
+
+    public class RegisterInput
+    {
+        [Required(ErrorMessage = "Овгоо оруулна уу")] public string LastName { get; set; } = "";
+        [Required(ErrorMessage = "Нэрээ оруулна уу")] public string FirstName { get; set; } = "";
+        public string? Phone { get; set; }
+
+        [Required(ErrorMessage = "И-мэйлээ оруулна уу")]
+        [EmailAddress(ErrorMessage = "И-мэйл буруу форматтай")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Нууц үгээ оруулна уу")]
+        [MinLength(6, ErrorMessage = "Хамгийн багадаа 6 тэмдэгт")]
+        public string Password { get; set; } = "";
+    }
+}

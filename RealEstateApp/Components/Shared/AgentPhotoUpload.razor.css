@@ -1,0 +1,110 @@
+﻿.ap {
+    --g: var(--mud-palette-primary, #2c7a7b);
+    display: flex;
+    gap: 18px;
+    align-items: center;
+}
+
+.ap-preview {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #e8edee;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    border: 3px solid #fff;
+    box-shadow: 0 3px 12px rgba(0,0,0,.12);
+}
+
+    .ap-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.ap-initial {
+    background: var(--g);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.1rem;
+    font-weight: 800;
+}
+
+.ap-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ap-side {
+    min-width: 0;
+}
+
+.ap-title {
+    font-weight: 700;
+    color: #1a3c40;
+    font-size: .95rem;
+}
+
+.ap-hint {
+    color: #98a4ab;
+    font-size: .76rem;
+    margin: 2px 0 10px;
+}
+
+.ap-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ap-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--g);
+    color: #fff;
+    border: none;
+    font-size: .82rem;
+    padding: 8px 16px;
+    border-radius: 18px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity .15s;
+}
+
+    .ap-btn:hover:not(.disabled):not(:disabled) {
+        opacity: .88;
+    }
+
+    .ap-btn.disabled, .ap-btn:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+    .ap-btn.outline {
+        background: #fff;
+        color: #c53030;
+        border: 1.5px solid #c53030;
+    }
+
+        .ap-btn.outline:hover:not(:disabled) {
+            background: #c53030;
+            color: #fff;
+            opacity: 1;
+        }
+
+    .ap-btn ::deep input[type=file] {
+        display: none;
+    }

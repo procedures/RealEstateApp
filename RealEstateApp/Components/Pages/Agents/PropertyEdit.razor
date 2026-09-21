@@ -168,9 +168,51 @@
                     </div>
                 </div>
 
-                <!-- 6. Зураг -->
+                <!-- 6. Эзэмшигчийн мэдээлэл -->
                 <div class="pn-card">
-                    <h3 class="pn-ch"><span class="pn-num">6</span> Зураг</h3>
+                    <h3 class="pn-ch"><span class="pn-num">6</span> Эзэмшигчийн мэдээлэл</h3>
+                    <div class="pn-note">
+                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                        <span>Энэ мэдээлэл зөвхөн админ, агентад харагдана. Сайтад нийтэд ил гарахгүй.</span>
+                    </div>
+                    <div class="pn-grid">
+                        <MudTextField T="string" @bind-Value="_input.OwnerLastName" Label="Эзэмшигчийн овог *"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Required="true" RequiredError="Овгийг оруулна уу" />
+                        <MudTextField T="string" @bind-Value="_input.OwnerFirstName" Label="Эзэмшигчийн нэр *"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Required="true" RequiredError="Нэрийг оруулна уу" />
+                        <MudTextField T="string" @bind-Value="_input.OwnerRegisterNumber" Label="Эзэмшигчийн РД *"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Required="true" RequiredError="РД-г оруулна уу"
+                                      Placeholder="УБ12345678" />
+
+                        <MudSelect T="bool" @bind-Value="_input.HasAuthorizedRepresentative"
+                                   Label="Итгэмжлэгдсэн төлөөлөгч байгаа эсэх"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem T="bool" Value="false">Үгүй</MudSelectItem>
+                            <MudSelectItem T="bool" Value="true">Тийм</MudSelectItem>
+                        </MudSelect>
+
+                        @if (_input.HasAuthorizedRepresentative)
+                        {
+                            <MudTextField T="string" @bind-Value="_input.RepresentativeLastName" Label="Төлөөлөгчийн овог *"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Required="true" RequiredError="Овгийг оруулна уу" />
+                            <MudTextField T="string" @bind-Value="_input.RepresentativeFirstName" Label="Төлөөлөгчийн нэр *"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Required="true" RequiredError="Нэрийг оруулна уу" />
+                            <MudTextField T="string" @bind-Value="_input.RepresentativeRegisterNumber" Label="Төлөөлөгчийн РД *"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Required="true" RequiredError="РД-г оруулна уу"
+                                          Placeholder="УБ12345678" />
+                        }
+                    </div>
+                </div>
+
+                <!-- 7. Зураг -->
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">7</span> Зураг</h3>
                     <ImageManager PropertyId="Id" ActorAgentId="_agentId" />
                 </div>
 
@@ -226,6 +268,19 @@
         {
             _status = d.Status;
             d.Title = await PropertyRepo.GetTitleAsync(Id);
+
+            var owner = await PropertyRepo.GetOwnerInfoAsync(Id);
+            if (owner is not null)
+            {
+                d.OwnerLastName = owner.OwnerLastName;
+                d.OwnerFirstName = owner.OwnerFirstName;
+                d.OwnerRegisterNumber = owner.OwnerRegisterNumber;
+                d.HasAuthorizedRepresentative = owner.HasAuthorizedRepresentative;
+                d.RepresentativeLastName = owner.RepresentativeLastName;
+                d.RepresentativeFirstName = owner.RepresentativeFirstName;
+                d.RepresentativeRegisterNumber = owner.RepresentativeRegisterNumber;
+            }
+
             _input = PropertyInput.FromDetail(d);
         }
 
@@ -252,6 +307,15 @@
             return;
         }
 
+        if (_input.HasAuthorizedRepresentative &&
+            (string.IsNullOrWhiteSpace(_input.RepresentativeLastName) ||
+             string.IsNullOrWhiteSpace(_input.RepresentativeFirstName) ||
+             string.IsNullOrWhiteSpace(_input.RepresentativeRegisterNumber)))
+        {
+            Snackbar.Add("Итгэмжлэгдсэн төлөөлөгчийн овог, нэр, РД-г бүрэн бөглөнө үү.", Severity.Warning);
+            return;
+        }
+
         _saving = true;
         try
         {
@@ -259,6 +323,16 @@
             if (result.Ok)
             {
                 await PropertyRepo.SetTitleAsync(Id, _input.Title, _agentId);
+                await PropertyRepo.SetOwnerInfoAsync(Id, new PropertyOwnerInfo
+                {
+                    OwnerLastName = _input.OwnerLastName,
+                    OwnerFirstName = _input.OwnerFirstName,
+                    OwnerRegisterNumber = _input.OwnerRegisterNumber,
+                    HasAuthorizedRepresentative = _input.HasAuthorizedRepresentative,
+                    RepresentativeLastName = _input.RepresentativeLastName,
+                    RepresentativeFirstName = _input.RepresentativeFirstName,
+                    RepresentativeRegisterNumber = _input.RepresentativeRegisterNumber,
+                }, _agentId);
                 Snackbar.Add(result.Message, Severity.Success);
                 Nav.NavigateTo("/agent");
             }

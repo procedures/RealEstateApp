@@ -87,7 +87,7 @@
             <div class="hero-right">
                 @if (_hero is not null)
                 {
-                    <div class="feat-wrap">
+                    <a href="/property/@_hero.PropertyId" class="feat-wrap">
                         <div class="feat-img" style="background-image:url('@Img(_hero.MainImagePath, _hero.PropertyId, 900, 700)')">
                             <div class="feat-price">
                                 <div class="fp-amount">@Money(_hero.Price)</div>
@@ -108,7 +108,7 @@
                                 <div class="agent-rate"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> 4.9 (127 сэтгэгдэл)</div>
                             </div>
                         </div>
-                    </div>
+                    </a>
                 }
             </div>
         </section>

@@ -144,6 +144,29 @@
                                         <span class="ig-lbl">Эзэн өөрөө худалдаж буй</span>
                                         <span class="ig-val">@(_p.OwnerSelfSelling ? "Тийм" : "Үгүй")</span>
                                     </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Эзэмшигч</span>
+                                        <span class="ig-val">@(string.IsNullOrWhiteSpace(_p.OwnerLastName) && string.IsNullOrWhiteSpace(_p.OwnerFirstName) ? "-" : $"{_p.OwnerLastName} {_p.OwnerFirstName}".Trim())</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Эзэмшигчийн РД</span>
+                                        <span class="ig-val">@(_p.OwnerRegisterNumber ?? "-")</span>
+                                    </div>
+                                    <div class="ig-item">
+                                        <span class="ig-lbl">Итгэмжлэгдсэн төлөөлөгч</span>
+                                        <span class="ig-val">@(_p.HasAuthorizedRepresentative ? "Тийм" : "Үгүй")</span>
+                                    </div>
+                                    @if (_p.HasAuthorizedRepresentative)
+                                    {
+                                        <div class="ig-item">
+                                            <span class="ig-lbl">Төлөөлөгч</span>
+                                            <span class="ig-val">@($"{_p.RepresentativeLastName} {_p.RepresentativeFirstName}".Trim())</span>
+                                        </div>
+                                        <div class="ig-item">
+                                            <span class="ig-lbl">Төлөөлөгчийн РД</span>
+                                            <span class="ig-val">@(_p.RepresentativeRegisterNumber ?? "-")</span>
+                                        </div>
+                                    }
                                     @if (_p.ContractClosedDate.HasValue)
                                     {
                                         <div class="ig-item">
@@ -280,7 +303,22 @@
         _tour = new ViewingInput();
 
         _p = await PropertyRepo.GetByIdAsync(Id);
-        if (_p is not null) _p.Title = await PropertyRepo.GetTitleAsync(Id);
+        if (_p is not null)
+        {
+            _p.Title = await PropertyRepo.GetTitleAsync(Id);
+
+            var owner = await PropertyRepo.GetOwnerInfoAsync(Id);
+            if (owner is not null)
+            {
+                _p.OwnerLastName = owner.OwnerLastName;
+                _p.OwnerFirstName = owner.OwnerFirstName;
+                _p.OwnerRegisterNumber = owner.OwnerRegisterNumber;
+                _p.HasAuthorizedRepresentative = owner.HasAuthorizedRepresentative;
+                _p.RepresentativeLastName = owner.RepresentativeLastName;
+                _p.RepresentativeFirstName = owner.RepresentativeFirstName;
+                _p.RepresentativeRegisterNumber = owner.RepresentativeRegisterNumber;
+            }
+        }
         _images = _p is null ? new() : await ImageRepo.ListAsync(_p.PropertyId);
 
         _loading = false;

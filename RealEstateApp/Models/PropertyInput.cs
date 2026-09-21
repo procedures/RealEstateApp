@@ -42,6 +42,24 @@ public class PropertyInput
     public string? ContactPhone { get; set; }
     public bool OwnerSelfSelling { get; set; }
 
+    // ҮХХ-ийн эзэмшигчийн мэдээлэл
+    [Required(ErrorMessage = "Эзэмшигчийн овгийг оруулна уу")]
+    public string? OwnerLastName { get; set; }
+
+    [Required(ErrorMessage = "Эзэмшигчийн нэрийг оруулна уу")]
+    public string? OwnerFirstName { get; set; }
+
+    [Required(ErrorMessage = "Эзэмшигчийн РД-г оруулна уу")]
+    [RegularExpression(@"^[А-Яа-яӨөҮүЁё]{2}\d{8}$", ErrorMessage = "РД буруу форматтай байна (жишээ: УБ12345678)")]
+    public string? OwnerRegisterNumber { get; set; }
+
+    public bool HasAuthorizedRepresentative { get; set; }
+    public string? RepresentativeLastName { get; set; }
+    public string? RepresentativeFirstName { get; set; }
+
+    [RegularExpression(@"^[А-Яа-яӨөҮүЁё]{2}\d{8}$", ErrorMessage = "РД буруу форматтай байна (жишээ: УБ12345678)")]
+    public string? RepresentativeRegisterNumber { get; set; }
+
     public static PropertyInput FromDetail(PropertyDetailDto d) => new()
     {
         ContractNumber = d.ContractNumber,
@@ -63,6 +81,13 @@ public class PropertyInput
         HasGarage = d.HasGarage,
         ContactPhone = d.ContactPhone,
         OwnerSelfSelling = d.OwnerSelfSelling,
+        OwnerLastName = d.OwnerLastName,
+        OwnerFirstName = d.OwnerFirstName,
+        OwnerRegisterNumber = d.OwnerRegisterNumber,
+        HasAuthorizedRepresentative = d.HasAuthorizedRepresentative,
+        RepresentativeLastName = d.RepresentativeLastName,
+        RepresentativeFirstName = d.RepresentativeFirstName,
+        RepresentativeRegisterNumber = d.RepresentativeRegisterNumber,
     };
 }
 

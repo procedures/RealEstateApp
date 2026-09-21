@@ -28,6 +28,13 @@ public class PropertyDetailDto
     public bool HasGarage { get; set; }
     public string? ContactPhone { get; set; }
     public bool OwnerSelfSelling { get; set; }
+    public string? OwnerLastName { get; set; }
+    public string? OwnerFirstName { get; set; }
+    public string? OwnerRegisterNumber { get; set; }
+    public bool HasAuthorizedRepresentative { get; set; }
+    public string? RepresentativeLastName { get; set; }
+    public string? RepresentativeFirstName { get; set; }
+    public string? RepresentativeRegisterNumber { get; set; }
     public int AgentId { get; set; }
     public string AgentName { get; set; } = "";
     public string? AgentPhone { get; set; }

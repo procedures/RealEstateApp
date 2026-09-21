@@ -18,6 +18,8 @@ public interface IPropertyRepository
     Task<PagedResult<PropertyListItem>> ListByAgentPublicAsync(int agentId, string sortBy, int pageNumber, int pageSize);
     Task<string?> GetTitleAsync(int propertyId);
     Task<ProcResult> SetTitleAsync(int propertyId, string? title, int actorAgentId);
+    Task<PropertyOwnerInfo?> GetOwnerInfoAsync(int propertyId);
+    Task<ProcResult> SetOwnerInfoAsync(int propertyId, PropertyOwnerInfo info, int actorAgentId);
 }
 
 public class PropertyRepository : IPropertyRepository
@@ -254,6 +256,41 @@ public class PropertyRepository : IPropertyRepository
         p.Add("@ResponseMessage", dbType: DbType.String, direction: ParameterDirection.Output, size: 500);
 
         await db.ExecuteAsync("dbo.usp_Property_SetTitle", p, commandType: CommandType.StoredProcedure);
+
+        return new ProcResult(
+            p.Get<int>("@ResponseCode"),
+            p.Get<string>("@ResponseMessage") ?? "");
+    }
+
+    public async Task<PropertyOwnerInfo?> GetOwnerInfoAsync(int propertyId)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@PropertyId", propertyId);
+
+        return await db.QueryFirstOrDefaultAsync<PropertyOwnerInfo>(
+            "dbo.usp_Property_GetOwnerInfo", p, commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task<ProcResult> SetOwnerInfoAsync(int propertyId, PropertyOwnerInfo info, int actorAgentId)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@PropertyId", propertyId);
+        p.Add("@OwnerLastName", info.OwnerLastName);
+        p.Add("@OwnerFirstName", info.OwnerFirstName);
+        p.Add("@OwnerRegisterNumber", info.OwnerRegisterNumber);
+        p.Add("@HasAuthorizedRepresentative", info.HasAuthorizedRepresentative);
+        p.Add("@RepresentativeLastName", info.RepresentativeLastName);
+        p.Add("@RepresentativeFirstName", info.RepresentativeFirstName);
+        p.Add("@RepresentativeRegisterNumber", info.RepresentativeRegisterNumber);
+        p.Add("@ActorAgentId", actorAgentId);
+        p.Add("@ResponseCode", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        p.Add("@ResponseMessage", dbType: DbType.String, direction: ParameterDirection.Output, size: 500);
+
+        await db.ExecuteAsync("dbo.usp_Property_SetOwnerInfo", p, commandType: CommandType.StoredProcedure);
 
         return new ProcResult(
             p.Get<int>("@ResponseCode"),

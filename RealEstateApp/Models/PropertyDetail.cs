@@ -14,6 +14,7 @@ public class PropertyDetailDto
     public string DistrictCode { get; set; } = "";
     public string? LocationDescription { get; set; }
     public string? ComplexName { get; set; }
+    public string? Title { get; set; }
     public string Address { get; set; } = "";
     public decimal Price { get; set; }
     public decimal AreaSize { get; set; }

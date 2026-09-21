@@ -170,7 +170,7 @@
                                 }
                             </div>
                             <div class="gcard-body">
-                                <div class="gcard-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                                <div class="gcard-title">@(it.Title ?? it.ComplexName ?? it.PropertyTypeName)</div>
                                 <div class="gcard-loc"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.DistrictName</div>
                                 <div class="gcard-meta">
                                     <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0)</span>
@@ -204,8 +204,8 @@
                             <div class="rcard-body">
                                 <div class="rcard-top">
                                     <div>
-                                        <div class="gcard-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
-                                        <div class="rcard-addr"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.Address</div>
+                                        <div class="gcard-title">@(it.Title ?? it.ComplexName ?? it.PropertyTypeName)</div>
+                                        <div class="rcard-addr"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.DistrictName</div>
                                     </div>
                                     <span class="gcard-badge static">@it.TransactionTypeName</span>
                                 </div>

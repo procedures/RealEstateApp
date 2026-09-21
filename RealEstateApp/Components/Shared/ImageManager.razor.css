@@ -1,5 +1,5 @@
 ﻿.im {
-    --g: var(--mud-palette-primary);
+    --g: var(--mud-palette-primary, #2c7a7b);
 }
 
 .im-head {
@@ -57,11 +57,65 @@
     border-radius: 10px;
     overflow: hidden;
     border: 3px solid transparent;
+    cursor: grab;
+    transition: opacity .15s, transform .15s, border-color .15s;
 }
 
     .im-item.main {
         border-color: var(--g);
     }
+
+    .im-item.dragging {
+        opacity: .45;
+        cursor: grabbing;
+    }
+
+    .im-item.drag-over {
+        border-color: var(--g);
+        transform: scale(1.03);
+    }
+
+.im-order {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: rgba(0,0,0,.55);
+    color: #fff;
+    font-size: .68rem;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.im-item.main .im-order {
+    left: auto;
+    right: 6px;
+}
+
+.im-drag {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.85);
+    color: #4a5568;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: .15s;
+}
+
+.im-item:hover .im-drag {
+    opacity: 1;
+}
 
 .im-thumb {
     height: 110px;
@@ -84,9 +138,12 @@
 
 .im-tools {
     position: absolute;
-    top: 6px;
+    top: 28px;
     right: 6px;
+    left: 6px;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 5px;
     opacity: 0;
     transition: .15s;

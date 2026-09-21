@@ -50,6 +50,13 @@
                     <MudDatePicker @bind-Date="_input.ContractDate" Label="Гэрээ хийсэн огноо"
                                    Variant="Variant.Outlined" Margin="Margin.Dense"
                                    HelperText="Дугаарлалт энэ огноогоор явна" />
+
+                    <div class="pn-full">
+                        <MudTextField T="string" @bind-Value="_input.Title" Label="Зарын гарчиг"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Placeholder="Жишээ: Нарны хороололд 2 өрөө орон сууц"
+                                      HelperText="Сайт дээр нийтэд харагдах гарчиг. ҮХХ-ийн бүрэн хаяг нийтэд харагдахгүй." />
+                    </div>
                 </div>
             </div>
 
@@ -221,6 +228,11 @@
 
             if (result.Ok)
             {
+                if (!string.IsNullOrWhiteSpace(_input.Title))
+                {
+                    await PropertyRepo.SetTitleAsync(newId, _input.Title, _agentId);
+                }
+
                 // Процедур нь мессежийн төгсгөлд олгосон дугаарыг бичиж ирүүлнэ
                 Snackbar.Add(result.Message, Severity.Success);
                 Snackbar.Add("Одоо зургаа нэмнэ үү.", Severity.Info);

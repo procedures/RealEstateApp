@@ -106,7 +106,7 @@
                 @foreach (var it in _items)
                 {
                     <div class="ad-card">
-                        <div class="ad-thumb" style="background-image:url('@Img(it.PropertyId)')"></div>
+                        <div class="ad-thumb" style="background-image:url('@Img(it.MainImagePath, it.PropertyId)')"></div>
                         <div class="ad-body">
                             <div class="ad-cardtop">
                                 <div>
@@ -336,7 +336,10 @@
         finally { _busy = false; _confirm = null; }
     }
 
-    private string Img(int id) => $"https://picsum.photos/seed/prop{id * 100}/300/220";
+    private string Img(string? mainImagePath, int id) =>
+        string.IsNullOrWhiteSpace(mainImagePath)
+            ? $"https://picsum.photos/seed/prop{id * 100}/300/220"
+            : mainImagePath;
     private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
 
     private string StatusLabel(int s) => s switch

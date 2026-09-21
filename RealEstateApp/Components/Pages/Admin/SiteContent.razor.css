@@ -1,5 +1,5 @@
 ﻿.ad {
-    --g: var(--mud-palette-primary);
+    --g: var(--mud-palette-primary, #2c7a7b);
     font-family: Roboto, sans-serif;
     background: #f4f6f8;
     min-height: 100vh;

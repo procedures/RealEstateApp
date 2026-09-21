@@ -32,7 +32,12 @@
         {
             <!-- Профайл -->
             <div class="prof">
-                <div class="prof-ava" style="background-image:url('https://i.pravatar.cc/200?u=@_agent.AgentId')"></div>
+                <div class="prof-ava" style="@AvaStyle(_agent.PhotoUrl)">
+                    @if (string.IsNullOrWhiteSpace(_agent.PhotoUrl))
+                    {
+                        @Initial(_agent.FullName)
+                    }
+                </div>
                 <div class="prof-info">
                     <h1 class="prof-name">@_agent.FullName</h1>
                     <div class="prof-branch">
@@ -110,7 +115,7 @@
                                 <span class="gcard-badge">@it.TransactionTypeName</span>
                             </div>
                             <div class="gcard-body">
-                                <div class="gcard-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                                <div class="gcard-title">@(it.Title ?? it.ComplexName ?? it.PropertyTypeName)</div>
                                 <div class="gcard-loc"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.DistrictName</div>
                                 <div class="gcard-meta">
                                     <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0)</span>
@@ -203,4 +208,12 @@
             : it.MainImagePath;
 
     private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+
+    private static string AvaStyle(string? photoUrl) =>
+        string.IsNullOrWhiteSpace(photoUrl)
+            ? "display:flex;align-items:center;justify-content:center;background:var(--g,#2c7a7b);color:#fff;font-weight:700;font-size:2.4rem"
+            : $"background-image:url('{photoUrl}')";
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
 }

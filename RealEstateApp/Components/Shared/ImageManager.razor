@@ -16,7 +16,7 @@
         </label>
     </div>
 
-    <p class="im-hint">JPG, PNG, WEBP · нэг файл 5MB хүртэл · эхний зураг үндсэн зураг болно</p>
+    <p class="im-hint">JPG, PNG, WEBP · нэг файл 5MB хүртэл · эхний зураг үндсэн зураг болно · зургийг чирж эсвэл сумаар зөөж эрэмбийг өөрчилнө үү</p>
 
     @if (_images.Count == 0)
     {
@@ -28,16 +28,34 @@
     else
     {
         <div class="im-grid">
-            @foreach (var img in _images)
+            @for (int i = 0; i < _images.Count; i++)
             {
-                var image = img;
-                <div class="im-item @(image.IsMain ? "main" : "")">
+                var index = i;
+                var image = _images[index];
+                <div class="im-item @(image.IsMain ? "main" : "") @(_dragIndex == index ? "dragging" : "") @(_dragOverIndex == index && _dragIndex != index ? "drag-over" : "")"
+                     draggable="true"
+                     @ondragstart="() => OnDragStart(index)"
+                     @ondragover="() => OnDragOver(index)"
+                     @ondragover:preventDefault="true"
+                     @ondrop="() => OnDropAsync(index)"
+                     @ondrop:preventDefault="true"
+                     @ondragend="OnDragEnd">
                     <div class="im-thumb" style="background-image:url('@image.ImagePath')"></div>
+                    <span class="im-order" title="Байрлал">@(index + 1)</span>
+                    <span class="im-drag" title="Чирж зөөх"><MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small" /></span>
                     @if (image.IsMain)
                     {
                         <span class="im-badge">Үндсэн</span>
                     }
                     <div class="im-tools">
+                        <button type="button" class="im-tool" title="Нэг байр урагшлуулах" disabled="@(_busy || index == 0)"
+                                @onclick="() => MoveAsync(index, index - 1)">
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowBackIosNew" Size="Size.Small" />
+                        </button>
+                        <button type="button" class="im-tool" title="Нэг байр хойшлуулах" disabled="@(_busy || index == _images.Count - 1)"
+                                @onclick="() => MoveAsync(index, index + 1)">
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowForwardIos" Size="Size.Small" />
+                        </button>
                         @if (!image.IsMain)
                         {
                             <button type="button" class="im-tool" title="Үндсэн болгох" disabled="@_busy"
@@ -62,6 +80,8 @@
 
     private List<PropertyImage> _images = new();
     private bool _busy;
+    private int? _dragIndex;
+    private int? _dragOverIndex;
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
@@ -129,6 +149,71 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OnDragStart(int index)
+    {
+        _dragIndex = index;
+        _dragOverIndex = null;
+    }
+
+    private void OnDragOver(int index)
+    {
+        if (_dragIndex is null || _dragIndex == index) return;
+        _dragOverIndex = index;
+    }
+
+    private void OnDragEnd()
+    {
+        _dragIndex = null;
+        _dragOverIndex = null;
+    }
+
+    private async Task OnDropAsync(int dropIndex)
+    {
+        var fromIndex = _dragIndex;
+        _dragIndex = null;
+        _dragOverIndex = null;
+
+        if (fromIndex is null || fromIndex == dropIndex) return;
+        await MoveAsync(fromIndex.Value, dropIndex);
+    }
+
+    private async Task MoveAsync(int fromIndex, int toIndex)
+    {
+        if (_busy) return;
+        if (fromIndex < 0 || fromIndex >= _images.Count) return;
+        if (toIndex < 0 || toIndex >= _images.Count) return;
+        if (fromIndex == toIndex) return;
+
+        var reordered = _images.ToList();
+        var moved = reordered[fromIndex];
+        reordered.RemoveAt(fromIndex);
+        reordered.Insert(toIndex, moved);
+
+        // Дэлгэц дээр даруй харуулна (сервертэй зэрэгцэн)
+        _images = reordered;
+        StateHasChanged();
+
+        _busy = true;
+        try
+        {
+            var res = await ImageRepo.ReorderAsync(PropertyId, reordered.Select(x => x.ImageId).ToList(), ActorAgentId);
+            if (!res.Ok)
+            {
+                Snackbar.Add(res.Message, Severity.Error);
+                await ReloadAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+            await ReloadAsync();
         }
         finally
         {

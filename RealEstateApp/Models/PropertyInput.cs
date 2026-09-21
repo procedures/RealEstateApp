@@ -19,6 +19,9 @@ public class PropertyInput
     public string? LocationDescription { get; set; }
     public string? ComplexName { get; set; }
 
+    [StringLength(200, ErrorMessage = "Гарчиг 200 тэмдэгтээс хэтрэхгүй байх ёстой")]
+    public string? Title { get; set; }
+
     [Required(ErrorMessage = "Хаягаа оруулна уу")]
     public string Address { get; set; } = "";
 
@@ -48,6 +51,7 @@ public class PropertyInput
         DistrictId = d.DistrictId,
         LocationDescription = d.LocationDescription,
         ComplexName = d.ComplexName,
+        Title = d.Title,
         Address = d.Address,
         Price = d.Price,
         AreaSize = d.AreaSize,

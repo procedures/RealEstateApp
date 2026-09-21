@@ -5,7 +5,7 @@
 }
 
 .fact-ic {
-    color: var(--mud-palette-primary);
+    color: var(--mud-palette-primary, #2c7a7b);
 }
 
 .fact-lbl {

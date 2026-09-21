@@ -88,15 +88,20 @@
                 @if (_hero is not null)
                 {
                     <div class="feat-wrap">
-                        <div class="feat-img" style="background-image:url('@Img(_hero.PropertyId, 900, 700)')">
+                        <div class="feat-img" style="background-image:url('@Img(_hero.MainImagePath, _hero.PropertyId, 900, 700)')">
                             <div class="feat-price">
                                 <div class="fp-amount">@Money(_hero.Price)</div>
                                 <div class="fp-tag">ОНЦЛОХ</div>
                             </div>
                         </div>
-                        <div class="feat-thumb" style="background-image:url('@Img(_hero.PropertyId + 1000, 400, 300)')"></div>
+                        <div class="feat-thumb" style="background-image:url('@Img(_hero.MainImagePath, _hero.PropertyId + 1000, 400, 300)')"></div>
                         <div class="agent-card">
-                            <div class="agent-ava" style="background-image:url('https://i.pravatar.cc/100?u=@_hero.PropertyId')"></div>
+                            <div class="agent-ava" style="@AvaStyle(_hero.AgentPhotoUrl)">
+                                @if (string.IsNullOrWhiteSpace(_hero.AgentPhotoUrl))
+                                {
+                                    @Initial(_hero.AgentName)
+                                }
+                            </div>
                             <div>
                                 <div class="agent-name">@_hero.AgentName</div>
                                 <div class="agent-role">Хариуцсан агент</div>
@@ -128,11 +133,11 @@
                 @foreach (var it in _grid)
                 {
                     <div class="prop-card">
-                        <div class="prop-img" style="background-image:url('@Img(it.PropertyId, 500, 340)')">
+                        <div class="prop-img" style="background-image:url('@Img(it.MainImagePath, it.PropertyId, 500, 340)')">
                             <span class="prop-badge">@it.TransactionTypeName</span>
                         </div>
                         <div class="prop-body">
-                            <div class="prop-title">@(it.ComplexName ?? it.PropertyTypeName)</div>
+                            <div class="prop-title">@(it.Title ?? it.ComplexName ?? it.PropertyTypeName)</div>
                             <div class="loc sm"><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @it.DistrictName</div>
                             <div class="prop-meta">
                                 <span><MudIcon Icon="@Icons.Material.Filled.KingBed" Size="Size.Small" /> @(it.RoomCount ?? 0)</span>
@@ -208,6 +213,17 @@
         await LoadAsync();
     }
 
-    private string Img(int id, int w, int h) => $"https://picsum.photos/seed/prop{id}/{w}/{h}";
+    private string Img(string? mainImagePath, int id, int w, int h) =>
+        string.IsNullOrWhiteSpace(mainImagePath)
+            ? $"https://picsum.photos/seed/prop{id}/{w}/{h}"
+            : mainImagePath;
     private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+
+    private static string AvaStyle(string? photoUrl) =>
+        string.IsNullOrWhiteSpace(photoUrl)
+            ? "display:flex;align-items:center;justify-content:center;background:var(--g,#2c7a7b);color:#fff;font-weight:700;font-size:1.1rem"
+            : $"background-image:url('{photoUrl}')";
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
 }

@@ -2,6 +2,15 @@ h1:focus {
     outline: none;
 }
 
+/* Blazor-ийн FocusOnNavigate (Routes.razor) хуудас бүрийн эхний h1-д
+   focus тавьж, хөтчийг тэр рүү автоматаар scroll хийлгэдэг. Манай sticky
+   header (.hd, position:sticky; top:0) яг h1-ийн дээр байрладаг тул
+   scroll хийхэд header нь h1-г дороо далдалдаг байсан тул үүнийг
+   тохируулж, header-ийн өндрөөр (68px) нөөц зай үлдээв. */
+h1 {
+    scroll-margin-top: 84px;
+}
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }

@@ -20,7 +20,7 @@
         <div class="pd-container">
             <a href="/">Нүүр</a> <span>/</span>
             <a href="/properties">Зарууд</a> <span>/</span>
-            <b>@(_p?.ComplexName ?? "Хөрөнгийн дэлгэрэнгүй")</b>
+            <b>@(_p?.Title ?? _p?.ComplexName ?? "Хөрөнгийн дэлгэрэнгүй")</b>
         </div>
     </div>
 
@@ -81,14 +81,18 @@
                     <div class="about">
                         <h2 class="about-h">Энэ хөрөнгийн тухай</h2>
                         <p class="about-p">
-                            @(_p.ComplexName ?? _p.PropertyTypeName) — @_p.DistrictName.
+                            @(_p.Title ?? _p.ComplexName ?? _p.PropertyTypeName) — @_p.DistrictName.
                             @(!string.IsNullOrWhiteSpace(_p.LocationDescription) ? _p.LocationDescription + "." : "")
                             Нийт @_p.AreaSize.ToString("0.#") м² талбайтай,
                             @(_p.RoomCount?.ToString() ?? "-") өрөө,
                             @(_p.BuildingFloors?.ToString() ?? "-") давхар байрны
                             @(_p.FloorNumber?.ToString() ?? "-")-р давхарт байрлана.
                         </p>
-                        <p class="about-p"><b>Хаяг:</b> @_p.Address</p>
+                        <AuthorizeView>
+                            <Authorized>
+                                <p class="about-p"><b>Хаяг:</b> @_p.Address</p>
+                            </Authorized>
+                        </AuthorizeView>
                     </div>
 
                     <!-- Зөвхөн нэвтэрсэн үед -->
@@ -159,8 +163,15 @@
                         <div class="sc-price">@Money(_p.Price)</div>
                         <span class="sc-badge">@_p.TransactionTypeName.ToUpper()</span>
 
-                        <div class="sc-addr-title">@(_p.ComplexName ?? _p.PropertyTypeName)</div>
-                        <div class="sc-addr">@_p.Address</div>
+                        <div class="sc-addr-title">@(_p.Title ?? _p.ComplexName ?? _p.PropertyTypeName)</div>
+                        <AuthorizeView>
+                            <Authorized>
+                                <div class="sc-addr">@_p.Address</div>
+                            </Authorized>
+                            <NotAuthorized>
+                                <div class="sc-addr">@_p.DistrictName</div>
+                            </NotAuthorized>
+                        </AuthorizeView>
 
                         <div class="specs">
                             <Fact Icon="@Icons.Material.Filled.KingBed" Label="Өрөө" Value="@((_p.RoomCount?.ToString() ?? "-"))" />
@@ -269,6 +280,7 @@
         _tour = new ViewingInput();
 
         _p = await PropertyRepo.GetByIdAsync(Id);
+        if (_p is not null) _p.Title = await PropertyRepo.GetTitleAsync(Id);
         _images = _p is null ? new() : await ImageRepo.ListAsync(_p.PropertyId);
 
         _loading = false;
@@ -312,7 +324,7 @@
                 _tourSent = true;
 
                 // Telegram мэдэгдэл (фон дээр, хариу хүлээхгүй)
-                var propName = _p?.ComplexName ?? _p?.Address ?? $"№{Id}";
+                var propName = _p?.Title ?? _p?.ComplexName ?? _p?.Address ?? $"№{Id}";
                 var msg =
                     $"🏠 <b>Шинэ үзлэгийн хүсэлт</b>\n\n" +
                     $"<b>Хөрөнгө:</b> {Esc(propName)}\n" +

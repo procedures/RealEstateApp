@@ -72,6 +72,13 @@
 
                         <MudDatePicker @bind-Date="_input.ContractDate" Label="Гэрээ хийсэн огноо"
                                        Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                        <div class="pn-full">
+                            <MudTextField T="string" @bind-Value="_input.Title" Label="Зарын гарчиг"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Placeholder="Жишээ: Нарны хороололд 2 өрөө орон сууц"
+                                          HelperText="Сайт дээр нийтэд харагдах гарчиг. ҮХХ-ийн бүрэн хаяг нийтэд харагдахгүй." />
+                        </div>
                     </div>
                 </div>
 
@@ -218,6 +225,7 @@
         else
         {
             _status = d.Status;
+            d.Title = await PropertyRepo.GetTitleAsync(Id);
             _input = PropertyInput.FromDetail(d);
         }
 
@@ -250,6 +258,7 @@
             var result = await PropertyRepo.UpdateAsync(Id, _input, _agentId);
             if (result.Ok)
             {
+                await PropertyRepo.SetTitleAsync(Id, _input.Title, _agentId);
                 Snackbar.Add(result.Message, Severity.Success);
                 Nav.NavigateTo("/agent");
             }

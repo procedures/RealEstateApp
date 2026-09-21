@@ -24,6 +24,9 @@ public class PropertyListItem
     public DateTime? ContractClosedDate { get; set; }
     public DateTime? CreatedAt { get; set; }
     public string AgentName { get; set; } = "";
+    public int? AgentId { get; set; }
+    public string? AgentPhotoUrl { get; set; }
+    public string? Title { get; set; }
 
     // Зураг
     public string? MainImagePath { get; set; }

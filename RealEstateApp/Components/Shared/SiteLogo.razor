@@ -3,8 +3,8 @@
 @inject ISiteBrandService Brand
 
 <a href="@Href" class="logo @Size.ToString().ToLower() @Class">
-    <span class="logo-mark">
-        <MudIcon Icon="@Icon" />
+    <span class="logo-mark logo-mark-img">
+        <img src="/images/logo.jpg" alt="@(_name ?? "BMZest properties")" class="logo-img" />
     </span>
 
     <span class="logo-text">

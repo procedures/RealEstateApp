@@ -16,6 +16,8 @@ public interface IPropertyRepository
     Task<ProcResult> RejectAsync(int propertyId, int adminAgentId, string? note);
     Task<(ProcResult Result, List<string> PublicIds)> DeleteAsync(int propertyId, int actorAgentId);
     Task<PagedResult<PropertyListItem>> ListByAgentPublicAsync(int agentId, string sortBy, int pageNumber, int pageSize);
+    Task<string?> GetTitleAsync(int propertyId);
+    Task<ProcResult> SetTitleAsync(int propertyId, string? title, int actorAgentId);
 }
 
 public class PropertyRepository : IPropertyRepository
@@ -227,5 +229,34 @@ public class PropertyRepository : IPropertyRepository
             Items = rows,
             Total = rows.Count > 0 ? rows[0].TotalCount : 0
         };
+    }
+
+    public async Task<string?> GetTitleAsync(int propertyId)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@PropertyId", propertyId);
+
+        return await db.QueryFirstOrDefaultAsync<string?>(
+            "dbo.usp_Property_GetTitle", p, commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task<ProcResult> SetTitleAsync(int propertyId, string? title, int actorAgentId)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@PropertyId", propertyId);
+        p.Add("@Title", title);
+        p.Add("@ActorAgentId", actorAgentId);
+        p.Add("@ResponseCode", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        p.Add("@ResponseMessage", dbType: DbType.String, direction: ParameterDirection.Output, size: 500);
+
+        await db.ExecuteAsync("dbo.usp_Property_SetTitle", p, commandType: CommandType.StoredProcedure);
+
+        return new ProcResult(
+            p.Get<int>("@ResponseCode"),
+            p.Get<string>("@ResponseMessage") ?? "");
     }
 }

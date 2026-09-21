@@ -64,7 +64,12 @@
                 {
                     <a href="/agents/@a.AgentId" class="acard">
                         <div class="acard-cover" style="background-image:url('@Cover(a)')"></div>
-                        <div class="acard-ava" style="background-image:url('@Ava(a.AgentId)')"></div>
+                        <div class="acard-ava" style="@AvaStyle(a.PhotoUrl)">
+                            @if (string.IsNullOrWhiteSpace(a.PhotoUrl))
+                            {
+                                @Initial(a.FullName)
+                            }
+                        </div>
                         <div class="acard-body">
                             <div class="acard-name">@a.FullName</div>
                             <div class="acard-branch">
@@ -177,5 +182,11 @@
             ? $"https://picsum.photos/seed/cover{a.AgentId}/400/160"
             : a.LatestImagePath;
 
-    private string Ava(int agentId) => $"https://i.pravatar.cc/160?u={agentId}";
+    private static string AvaStyle(string? photoUrl) =>
+        string.IsNullOrWhiteSpace(photoUrl)
+            ? "display:flex;align-items:center;justify-content:center;background:var(--g,#2c7a7b);color:#fff;font-weight:700;font-size:1.5rem"
+            : $"background-image:url('{photoUrl}')";
+
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
 }

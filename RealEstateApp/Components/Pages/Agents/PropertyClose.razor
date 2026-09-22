@@ -106,9 +106,47 @@
                         </div>
                     </div>
 
-                    <!-- 4. Хамтран борлуулсан агент -->
+                    <!-- 4. Төлбөрийн нөхцөл ба итгэмжлэл -->
                     <div class="pn-card">
-                        <h3 class="pn-ch"><span class="pn-num">4</span> Хамтран борлуулсан агент</h3>
+                        <h3 class="pn-ch"><span class="pn-num">4</span> Төлбөрийн нөхцөл ба итгэмжлэл</h3>
+                        <div class="pn-note">
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                            <span>Энэ мэдээлэл зөвхөн админ болон бүртгэсэн агентад харагдана.</span>
+                        </div>
+                        <div class="pn-grid">
+                            <MudSelect T="int?" @bind-Value="_input.PaymentMethod" Label="Төлбөрийн нөхцөл"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                                <MudSelectItem T="int?" Value="@((int?)PaymentMethods.Cash)">Бэлэн төлбөр</MudSelectItem>
+                                <MudSelectItem T="int?" Value="@((int?)PaymentMethods.RegularLoan)">Энгийн ОС зээл</MudSelectItem>
+                                <MudSelectItem T="int?" Value="@((int?)PaymentMethods.Mortgage)">Ипотекийн зээл</MudSelectItem>
+                            </MudSelect>
+
+                            <MudSelect T="bool" @bind-Value="_input.HasBuyerRepresentative"
+                                       Label="Итгэмжлэлээр төлөөлж буй эсэх"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense">
+                                <MudSelectItem T="bool" Value="false">Үгүй</MudSelectItem>
+                                <MudSelectItem T="bool" Value="true">Тийм</MudSelectItem>
+                            </MudSelect>
+
+                            @if (_input.HasBuyerRepresentative)
+                            {
+                                <MudTextField T="string" @bind-Value="_input.BuyerRepLastName" Label="Итгэмжлэгчийн овог *"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                                              Required="true" RequiredError="Овгийг оруулна уу" />
+                                <MudTextField T="string" @bind-Value="_input.BuyerRepFirstName" Label="Итгэмжлэгчийн нэр *"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                                              Required="true" RequiredError="Нэрийг оруулна уу" />
+                                <MudTextField T="string" @bind-Value="_input.BuyerRepRegNo" Label="Итгэмжлэгчийн РД *"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                                              Required="true" RequiredError="РД-г оруулна уу"
+                                              Placeholder="АА00112233" />
+                            }
+                        </div>
+                    </div>
+
+                    <!-- 5. Хамтран борлуулсан агент -->
+                    <div class="pn-card">
+                        <h3 class="pn-ch"><span class="pn-num">5</span> Хамтран борлуулсан агент</h3>
                         <p class="pn-hint">Хамтран ажилласан агент байхгүй бол хоосон орхино уу.</p>
                         <div class="pn-grid">
                             <MudSelect T="int?" @bind-Value="_input.CoAgentBranchId" Label="Салбарын нэр"
@@ -222,6 +260,15 @@
             return;
         }
 
+        if (IsSoldReason && _input.HasBuyerRepresentative &&
+            (string.IsNullOrWhiteSpace(_input.BuyerRepLastName) ||
+             string.IsNullOrWhiteSpace(_input.BuyerRepFirstName) ||
+             string.IsNullOrWhiteSpace(_input.BuyerRepRegNo)))
+        {
+            Snackbar.Add("Итгэмжлэгчийн овог, нэр, РД-г бүрэн бөглөнө үү.", Severity.Warning);
+            return;
+        }
+
         _saving = true;
         try
         {
@@ -229,6 +276,29 @@
 
             if (result.Ok)
             {
+                if (IsSoldReason)
+                {
+                    // usp_PropertyClosure_Request нь шинэ ClosureId буцаадаггүй тул
+                    // саяхан үүссэн хүлээгдэж буй хүсэлтийг дахин уншиж олно
+                    var closures = await ClosureRepo.GetByPropertyAsync(Id);
+                    var justSubmitted = closures
+                        .Where(c => c.ApprovalStatus == 1 && c.SubmittedByAgentId == _agentId)
+                        .OrderByDescending(c => c.SubmittedAt)
+                        .FirstOrDefault();
+
+                    if (justSubmitted is not null)
+                    {
+                        await ClosureRepo.SetExtraAsync(justSubmitted.ClosureId, new ClosureExtraInfo
+                        {
+                            PaymentMethod = _input.PaymentMethod,
+                            HasBuyerRepresentative = _input.HasBuyerRepresentative,
+                            BuyerRepLastName = _input.BuyerRepLastName,
+                            BuyerRepFirstName = _input.BuyerRepFirstName,
+                            BuyerRepRegNo = _input.BuyerRepRegNo,
+                        }, _agentId);
+                    }
+                }
+
                 // Telegram мэдэгдэл (фон дээр)
                 var propName = _p?.ComplexName ?? _p?.Address ?? $"№{Id}";
                 var reason = _lookups.ClosureReasons

@@ -176,6 +176,13 @@
                                                         <span class="cl-val">-</span>
                                                     }
                                                 </div>
+                                                <div><span class="cl-lbl">Төлбөрийн нөхцөл</span><span class="cl-val">@_detail.PaymentMethodName</span></div>
+                                                <div><span class="cl-lbl">Итгэмжлэлээр төлөөлж буй</span><span class="cl-val">@(_detail.HasBuyerRepresentative ? "Тийм" : "Үгүй")</span></div>
+                                                @if (_detail.HasBuyerRepresentative)
+                                                {
+                                                    <div><span class="cl-lbl">Итгэмжлэгч</span><span class="cl-val">@Dash(_detail.BuyerRepFullName)</span></div>
+                                                    <div><span class="cl-lbl">Итгэмжлэгчийн РД</span><span class="cl-val">@Dash(_detail.BuyerRepRegNo)</span></div>
+                                                }
                                             </div>
                                         </div>
 
@@ -299,6 +306,18 @@
         try
         {
             _detail = await ClosureRepo.GetByIdAsync(closureId);
+            if (_detail is not null)
+            {
+                var extra = await ClosureRepo.GetExtraAsync(closureId);
+                if (extra is not null)
+                {
+                    _detail.PaymentMethod = extra.PaymentMethod;
+                    _detail.HasBuyerRepresentative = extra.HasBuyerRepresentative;
+                    _detail.BuyerRepLastName = extra.BuyerRepLastName;
+                    _detail.BuyerRepFirstName = extra.BuyerRepFirstName;
+                    _detail.BuyerRepRegNo = extra.BuyerRepRegNo;
+                }
+            }
         }
         catch (Exception ex)
         {

@@ -12,6 +12,8 @@ public interface IClosureRepository
     Task<ProcResult> ApproveAsync(int closureId, int adminAgentId, string? note);
     Task<ProcResult> RejectAsync(int closureId, int adminAgentId, string? note);
     Task<ClosureDetailDto?> GetByIdAsync(int closureId);
+    Task<ProcResult> SetExtraAsync(int closureId, ClosureExtraInfo info, int actorAgentId);
+    Task<ClosureExtraInfo?> GetExtraAsync(int closureId);
 }
 
 public class ClosureRepository : IClosureRepository
@@ -95,5 +97,36 @@ public class ClosureRepository : IClosureRepository
 
         return await db.QueryFirstOrDefaultAsync<ClosureDetailDto>(
             "dbo.usp_PropertyClosure_GetById", p, commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task<ProcResult> SetExtraAsync(int closureId, ClosureExtraInfo info, int actorAgentId)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@ClosureId", closureId);
+        p.Add("@PaymentMethod", info.PaymentMethod);
+        p.Add("@HasBuyerRepresentative", info.HasBuyerRepresentative);
+        p.Add("@BuyerRepLastName", info.BuyerRepLastName);
+        p.Add("@BuyerRepFirstName", info.BuyerRepFirstName);
+        p.Add("@BuyerRepRegNo", info.BuyerRepRegNo);
+        p.Add("@ActorAgentId", actorAgentId);
+        p.Add("@ResponseCode", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        p.Add("@ResponseMessage", dbType: DbType.String, direction: ParameterDirection.Output, size: 500);
+
+        await db.ExecuteAsync("dbo.usp_PropertyClosure_SetExtra", p, commandType: CommandType.StoredProcedure);
+
+        return new ProcResult(p.Get<int>("@ResponseCode"), p.Get<string>("@ResponseMessage") ?? "");
+    }
+
+    public async Task<ClosureExtraInfo?> GetExtraAsync(int closureId)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@ClosureId", closureId);
+
+        return await db.QueryFirstOrDefaultAsync<ClosureExtraInfo>(
+            "dbo.usp_PropertyClosure_GetExtra", p, commandType: CommandType.StoredProcedure);
     }
 }

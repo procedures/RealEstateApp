@@ -20,11 +20,46 @@ public class ClosureInput
     public string? BuyerRegNo { get; set; }
     public string? BuyerPhone { get; set; }
 
+    // Төлбөрийн нөхцөл: 1=Бэлэн төлбөр, 2=Энгийн ОС зээл, 3=Ипотекийн зээл
+    public int? PaymentMethod { get; set; }
+
+    // Итгэмжлэлээр төлөөлж буй эсэх
+    public bool HasBuyerRepresentative { get; set; }
+    public string? BuyerRepLastName { get; set; }
+    public string? BuyerRepFirstName { get; set; }
+    public string? BuyerRepRegNo { get; set; }
+
     // Хамтран борлуулсан агент
     public int? CoAgentBranchId { get; set; }
     public string? CoAgentLastName { get; set; }
     public string? CoAgentFirstName { get; set; }
     public string? CoAgentPhone { get; set; }
+}
+
+// Зөвхөн энэ хаалттай холбоотой, хожим нэмэгдсэн нэмэлт мэдээлэл
+// (Set/Get-ийг тусад нь дуудахад ашиглана — dbo.usp_PropertyClosure_Request-д хүрэлгүйгээр)
+public class ClosureExtraInfo
+{
+    public int? PaymentMethod { get; set; }
+    public bool HasBuyerRepresentative { get; set; }
+    public string? BuyerRepLastName { get; set; }
+    public string? BuyerRepFirstName { get; set; }
+    public string? BuyerRepRegNo { get; set; }
+}
+
+public static class PaymentMethods
+{
+    public const int Cash = 1;
+    public const int RegularLoan = 2;
+    public const int Mortgage = 3;
+
+    public static string Name(int? code) => code switch
+    {
+        Cash => "Бэлэн төлбөр",
+        RegularLoan => "Энгийн ОС зээл",
+        Mortgage => "Ипотекийн зээл",
+        _ => "-"
+    };
 }
 
 // Хаалтын бичлэгийн дэлгэрэнгүй
@@ -102,6 +137,13 @@ public class ClosureDetailDto
     public string? BuyerRegNo { get; set; }
     public string? BuyerPhone { get; set; }
 
+    // Төлбөрийн нөхцөл ба итгэмжлэл (зөвхөн админ + бүртгэсэн агент харна)
+    public int? PaymentMethod { get; set; }
+    public bool HasBuyerRepresentative { get; set; }
+    public string? BuyerRepLastName { get; set; }
+    public string? BuyerRepFirstName { get; set; }
+    public string? BuyerRepRegNo { get; set; }
+
     // Хамтран борлуулсан агент
     public int? CoAgentBranchId { get; set; }
     public string? CoAgentBranchName { get; set; }
@@ -141,6 +183,8 @@ public class ClosureDetailDto
     public int ImageCount { get; set; }
 
     public string BuyerFullName => $"{BuyerLastName} {BuyerFirstName}".Trim();
+    public string BuyerRepFullName => $"{BuyerRepLastName} {BuyerRepFirstName}".Trim();
+    public string PaymentMethodName => PaymentMethods.Name(PaymentMethod);
     public string CoAgentFullName => $"{CoAgentLastName} {CoAgentFirstName}".Trim();
     public bool HasCoAgentInfo =>
         !string.IsNullOrWhiteSpace(CoAgentFullName) || CoAgentBranchId.HasValue;

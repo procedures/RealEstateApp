@@ -7,6 +7,7 @@
 @inject IPropertyRepository PropertyRepo
 @inject IClosureRepository ClosureRepo
 @inject ILookupRepository LookupRepo
+@inject IAgentRepository AgentRepo
 @inject ITelegramNotifier Telegram
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
@@ -149,18 +150,17 @@
                         <h3 class="pn-ch"><span class="pn-num">5</span> Хамтран борлуулсан агент</h3>
                         <p class="pn-hint">Хамтран ажилласан агент байхгүй бол хоосон орхино уу.</p>
                         <div class="pn-grid">
-                            <MudSelect T="int?" @bind-Value="_input.CoAgentBranchId" Label="Салбарын нэр"
+                            <MudSelect T="int?" Value="_selectedCoAgentId" ValueChanged="OnCoAgentSelected"
+                                       Label="Хамтран ажилласан агент"
                                        Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
-                                @foreach (var b in _lookups.Branches)
+                                @foreach (var a in _coAgents)
                                 {
-                                    <MudSelectItem T="int?" Value="@((int?)b.BranchId)">@b.Name</MudSelectItem>
+                                    <MudSelectItem T="int?" Value="@((int?)a.AgentId)">@CoAgentLabel(a)</MudSelectItem>
                                 }
                             </MudSelect>
-                            <MudTextField T="string" @bind-Value="_input.CoAgentPhone" Label="Утасны дугаар"
+                            <MudTextField T="string" Value="@_input.CoAgentPhone" Label="Утасны дугаар" ReadOnly="true"
                                           Variant="Variant.Outlined" Margin="Margin.Dense" />
-                            <MudTextField T="string" @bind-Value="_input.CoAgentLastName" Label="Овог"
-                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
-                            <MudTextField T="string" @bind-Value="_input.CoAgentFirstName" Label="Нэр"
+                            <MudTextField T="string" Value="@_coAgentNameDisplay" Label="Нэр" ReadOnly="true"
                                           Variant="Variant.Outlined" Margin="Margin.Dense" />
                         </div>
                     </div>
@@ -200,6 +200,9 @@
     private bool _loading = true, _saving, _notFound, _noAccess, _alreadyClosed;
     private int _agentId;
     private string _agentName = "";
+    private List<AgentPublicItem> _coAgents = new();
+    private int? _selectedCoAgentId;
+    private string _coAgentNameDisplay = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -210,6 +213,12 @@
 
         _lookups = await LookupRepo.GetAllAsync();
         _p = await PropertyRepo.GetByIdAsync(Id);
+
+        var agentsRes = await AgentRepo.ListPublicAsync(null, null, "name", 1, 1000);
+        _coAgents = agentsRes.Items
+            .Where(a => a.AgentId != _agentId)
+            .OrderBy(a => a.FullName)
+            .ToList();
 
         if (_p is null) { _notFound = true; }
         else if (_p.AgentId != _agentId && !isAdmin) { _noAccess = true; }
@@ -243,6 +252,30 @@
     {
         if (_input.SoldTotalPrice is > 0 && _p?.AreaSize is > 0)
             _input.SoldPricePerSqm = Math.Round(_input.SoldTotalPrice.Value / _p.AreaSize, 2);
+    }
+
+    // Хамтран ажилласан агентыг жагсаалтаас сонгоход холбогдох талбаруудыг автоматаар бөглөнө
+    private void OnCoAgentSelected(int? agentId)
+    {
+        _selectedCoAgentId = agentId;
+        var a = _coAgents.FirstOrDefault(x => x.AgentId == agentId);
+
+        if (a is not null)
+        {
+            _input.CoAgentBranchId = a.BranchId;
+            _input.CoAgentLastName = a.LastName;
+            _input.CoAgentFirstName = a.FirstName;
+            _input.CoAgentPhone = a.Phone;
+            _coAgentNameDisplay = $"{a.LastName} {a.FirstName}".Trim();
+        }
+        else
+        {
+            _input.CoAgentBranchId = null;
+            _input.CoAgentLastName = null;
+            _input.CoAgentFirstName = null;
+            _input.CoAgentPhone = null;
+            _coAgentNameDisplay = "";
+        }
     }
 
     private async Task SubmitAsync()
@@ -331,6 +364,9 @@
         }
         finally { _saving = false; }
     }
+
+    private static string CoAgentLabel(AgentPublicItem a) =>
+        string.IsNullOrWhiteSpace(a.BranchName) ? a.FullName : $"{a.FullName} — {a.BranchName}";
 
     private string Money(decimal v) =>
         v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";

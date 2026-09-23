@@ -7,6 +7,7 @@
 @inject IPropertyRepository PropertyRepo
 @inject IViewingRepository ViewingRepo
 @inject IDashboardRepository DashboardRepo
+@inject ILookupRepository LookupRepo
 @inject IImageStorageService Storage
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
@@ -104,11 +105,84 @@
             @foreach (var t in Tabs)
             {
                 var tab = t;
-                <button class="ag-tab @(_status == tab.Status ? "active" : "")"
+                <button class="ag-tab @(_filter.Status == tab.Status ? "active" : "")"
                         @onclick="() => SelectTab(tab.Status)">
                     @tab.Label
                 </button>
             }
+        </div>
+
+        @* ================ Дэлгэрэнгүй шүүлтүүр ================ *@
+        <div class="ag-filters">
+            <div class="ag-filters-grid">
+                <MudSelect T="int?" @bind-Value="_filter.PropertyTypeId" Label="Төрөл"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var t in _lookups.PropertyTypes)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)t.PropertyTypeId)">@t.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudNumericField T="decimal?" @bind-Value="_filter.MinPrice" Label="Доод үнэ"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0" />
+
+                <MudNumericField T="int?" @bind-Value="_filter.RoomCount" Label="Өрөөний тоо"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+
+                <MudSelect T="int?" @bind-Value="_filter.DistrictId" Label="Дүүрэг"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var d in _lookups.Districts)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)d.DistrictId)">@d.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudNumericField T="decimal?" @bind-Value="_filter.MaxPrice" Label="Дээд үнэ"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0" />
+
+                <MudSelect T="int?" @bind-Value="_filter.TransactionTypeId" Label="Худалдаа/Түрээс"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var t in _lookups.TransactionTypes)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)t.TransactionTypeId)">@t.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" @bind-Value="_filter.LocationDescription" Label="Байршил"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var l in _locationLookups.LocationDescriptions)
+                    {
+                        <MudSelectItem T="string" Value="@l">@l</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="int?" @bind-Value="_filter.Status" Label="Төлөв"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var t in Tabs.Where(t => t.Status is not null))
+                    {
+                        <MudSelectItem T="int?" Value="@t.Status">@t.Label</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" @bind-Value="_filter.ComplexName" Label="Хотхоны нэр"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var c in _locationLookups.ComplexNames)
+                    {
+                        <MudSelectItem T="string" Value="@c.ComplexName">@c.ComplexName</MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+
+            <div class="ag-filters-actions">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Search" OnClick="ApplyFiltersAsync">
+                    Хайх
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                           OnClick="ClearFiltersAsync">
+                    Цэвэрлэх
+                </MudButton>
+            </div>
         </div>
 
         @if (_loading)
@@ -223,10 +297,14 @@
 
     private bool _loading = true, _busy, _isAdmin;
     private int _agentId;
-    private int? _status;
+    private PropertyFilter _filter = new();
     private int? _confirmDeleteId;
     private int _total;
     private List<PropertyListItem> _items = new();
+
+    // Шүүлтүүрийн сонголтууд
+    private LookupData _lookups = new();
+    private PropertyLocationLookups _locationLookups = new();
 
     private List<ViewingItem> _newViewings = new();
     private int _newViewingCount;
@@ -238,6 +316,9 @@
         var auth = await AuthState;
         _agentId = auth.User.GetAgentId();
         _isAdmin = auth.User.IsAdmin();
+
+        _lookups = await LookupRepo.GetAllAsync();
+        _locationLookups = await PropertyRepo.GetLocationLookupsAsync();
 
         await LoadStatsAsync();
         await LoadAsync();
@@ -261,11 +342,24 @@
         _loading = true;
         _confirmDeleteId = null;
 
-        var res = await PropertyRepo.ListByAgentAsync(_agentId, _status, 1, 50);
+        _filter.AgentId = _agentId;      // энэ хуудсанд зөвхөн өөрийн зарыг харна
+        _filter.OnlyPublished = false;   // бүх төлөвийг харна (тухайн агентынхаа хувьд)
+        _filter.PageNumber = 1;
+        _filter.PageSize = 50;
+
+        var res = await PropertyRepo.ListAsync(_filter);
         _items = res.Items.ToList();
         _total = res.Total;
 
         _loading = false;
+    }
+
+    private async Task ApplyFiltersAsync() => await LoadAsync();
+
+    private async Task ClearFiltersAsync()
+    {
+        _filter = new PropertyFilter();
+        await LoadAsync();
     }
 
     private async Task LoadViewingsAsync()
@@ -288,7 +382,7 @@
 
     private async Task SelectTab(int? status)
     {
-        _status = status;
+        _filter.Status = status;
         await LoadAsync();
     }
 

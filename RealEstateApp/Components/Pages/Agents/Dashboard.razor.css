@@ -201,6 +201,39 @@
         font-weight: 600;
     }
 
+/* ================= Дэлгэрэнгүй шүүлтүүр ================= */
+.ag-filters {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.ag-filters-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px 16px;
+}
+
+@media (max-width: 900px) {
+    .ag-filters-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .ag-filters-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ag-filters-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+}
+
 /* ================= Жагсаалт ================= */
 .ag-list {
     display: flex;

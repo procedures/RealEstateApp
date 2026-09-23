@@ -4,7 +4,7 @@ public class District { public int DistrictId { get; set; } public string Code =
 public class PropertyType { public int PropertyTypeId { get; set; } public string Name = ""; }
 public class TransactionType { public int TransactionTypeId { get; set; } public string Name = ""; }
 public class WindowDirection { public int WindowDirectionId { get; set; } public string Name = ""; }
-public class ClosureReason { public int ClosureReasonId { get; set; } public string Name = ""; public bool IsSold { get; set; } }
+public class ClosureReason { public int ClosureReasonId { get; set; } public string Name = ""; public bool IsSold { get; set; } public bool AllowsPriceEntry { get; set; } }
 public class Branch { public int BranchId { get; set; } public string Name = ""; }
 
 // Бүх dropdown-г нэг дор хадгалах сав

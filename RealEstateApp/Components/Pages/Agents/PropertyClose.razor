@@ -70,14 +70,14 @@
                     </div>
                 </div>
 
-                @if (IsSoldReason)
+                @if (AllowsPrice)
                 {
                     <!-- 2. Борлуулалтын мэдээлэл -->
                     <div class="pn-card">
                         <h3 class="pn-ch"><span class="pn-num">2</span> Борлуулалтын мэдээлэл</h3>
                         <div class="pn-grid">
                             <MudNumericField T="decimal?" @bind-Value="_input.SoldTotalPrice"
-                                             Label="Борлуулсан нийт үнэ (₮) *"
+                                             Label="@(IsSoldReason ? "Борлуулсан нийт үнэ (₮) *" : "Борлуулсан нийт үнэ (₮)")"
                                              Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0"
                                              HelperText="@($"Зарын үнэ: {Money(_p.Price)}")" />
 
@@ -90,7 +90,10 @@
                                              OnAdornmentClick="FillPerSqm" />
                         </div>
                     </div>
+                }
 
+                @if (IsSoldReason)
+                {
                     <!-- 3. Худалдан авагч -->
                     <div class="pn-card">
                         <h3 class="pn-ch"><span class="pn-num">3</span> Худалдан авагчийн мэдээлэл</h3>
@@ -232,10 +235,17 @@
         _loading = false;
     }
 
-    // Сонгосон шалтгаан нь борлуулалт мөн эсэх
+    // Сонгосон шалтгаан нь борлуулалт мөн эсэх (худалдан авагч/төлбөр/хамтран агентын мэдээлэл шаардана)
     private bool IsSoldReason =>
         _input.ClosureReasonId is int id &&
         _lookups.ClosureReasons.FirstOrDefault(r => r.ClosureReasonId == id)?.IsSold == true;
+
+    // Үнийн дүн оруулах боломжтой эсэх — "Зарагдсан"-аас гадна
+    // "Бусад аргаар зарагдсан" мэтийн AllowsPriceEntry=true шалтгаанууд ч мөн үнэ авна
+    private bool AllowsPrice =>
+        _input.ClosureReasonId is int id &&
+        _lookups.ClosureReasons.FirstOrDefault(r => r.ClosureReasonId == id) is { } reason &&
+        (reason.IsSold || reason.AllowsPriceEntry);
 
     private string AutoPerSqm
     {

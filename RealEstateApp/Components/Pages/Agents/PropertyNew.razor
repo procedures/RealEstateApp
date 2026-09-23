@@ -41,13 +41,12 @@
                         }
                     </MudSelect>
 
-                    <MudTextField T="string" Value="@AutoNumberHint" Label="Гэрээний дугаар"
+                    <MudTextField T="string" @bind-Value="_input.ContractNumber" Label="Гэрээний дугаар"
                                   Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  ReadOnly="true" Disabled="true"
                                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.AutoAwesome"
-                                  HelperText="Хадгалахад системээс автоматаар олгогдоно" />
+                                  HelperText="Санал болгосон дугаар. Шаардлагатай бол өөрчилж болно." />
 
-                    <MudDatePicker @bind-Date="_input.ContractDate" Label="Гэрээ хийсэн огноо"
+                    <MudDatePicker Date="_input.ContractDate" DateChanged="OnContractDateChanged" Label="Гэрээ хийсэн огноо"
                                    Variant="Variant.Outlined" Margin="Margin.Dense"
                                    HelperText="Дугаарлалт энэ огноогоор явна" />
 
@@ -228,6 +227,7 @@
     private PropertyLocationLookups _locationLookups = new();
     private int _agentId;
     private bool _saving;
+    private string? _priorSuggestedContractNumber;
 
     protected override async Task OnInitializedAsync()
     {
@@ -235,6 +235,35 @@
         _agentId = auth.User.GetAgentId();
         _lookups = await LookupRepo.GetAllAsync();
         _locationLookups = await PropertyRepo.GetLocationLookupsAsync();
+        await SuggestContractNumberAsync(DateTime.Today.Year);
+    }
+
+    // Тухайн жилээр дараагийн гэрээний дугаарыг санал болгоно.
+    // Агент өөрөө гараар өөрчилсөн бол (өмнөх саналаас өөр утгатай бол) дарж бичихгүй.
+    private async Task SuggestContractNumberAsync(int year)
+    {
+        try
+        {
+            var suggested = await PropertyRepo.GetNextContractNumberAsync(year);
+            if (string.IsNullOrWhiteSpace(_input.ContractNumber) ||
+                _input.ContractNumber == _priorSuggestedContractNumber)
+            {
+                _input.ContractNumber = suggested;
+            }
+            _priorSuggestedContractNumber = suggested;
+        }
+        catch
+        {
+            // Procedure байхгүй/алдаа гарвал хуучин зан төлөвөө хадгална:
+            // талбар хоосон үлдэж, хадгалахад бааз автоматаар олгоно.
+        }
+    }
+
+    private async Task OnContractDateChanged(DateTime? date)
+    {
+        _input.ContractDate = date;
+        var year = date?.Year ?? DateTime.Today.Year;
+        await SuggestContractNumberAsync(year);
     }
 
     // Хотхоны нэрийн санал болголт (өмнө нь бүртгэгдсэн нэрсээс)
@@ -278,16 +307,6 @@
         }
     }
 
-    // Сонгосон огноогоор дугаарын хэлбэрийг урьдчилан үзүүлнэ (жинхэнэ дугаар нь хадгалахад олгогдоно)
-    private string AutoNumberHint
-    {
-        get
-        {
-            var d = _input.ContractDate ?? DateTime.Today;
-            return $"{d:yyMMdd}### — автоматаар";
-        }
-    }
-
     private string PricePerSqm
     {
         get
@@ -317,8 +336,11 @@
             return;
         }
 
-        // Гэрээний дугаарыг бааз автоматаар олгоно
-        _input.ContractNumber = null;
+        // Санал болгосон (эсвэл агентын гараар засварласан) дугаарыг ашиглана;
+        // хоосон бол өмнөх шигээ бааз автоматаар олгоно
+        _input.ContractNumber = string.IsNullOrWhiteSpace(_input.ContractNumber)
+            ? null
+            : _input.ContractNumber.Trim();
 
         _saving = true;
         try

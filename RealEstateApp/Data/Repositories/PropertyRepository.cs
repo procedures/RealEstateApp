@@ -21,6 +21,7 @@ public interface IPropertyRepository
     Task<PropertyOwnerInfo?> GetOwnerInfoAsync(int propertyId);
     Task<ProcResult> SetOwnerInfoAsync(int propertyId, PropertyOwnerInfo info, int actorAgentId);
     Task<PropertyLocationLookups> GetLocationLookupsAsync(int? excludePropertyId = null);
+    Task<string?> GetNextContractNumberAsync(int year);
 }
 
 public class PropertyRepository : IPropertyRepository
@@ -319,5 +320,20 @@ public class PropertyRepository : IPropertyRepository
             ComplexNames = complexNames,
             LocationDescriptions = locationDescriptions
         };
+    }
+
+    // Тухайн жилд санал болгох дараагийн гэрээний дугаар ("2026-0001" хэлбэрээр)
+    public async Task<string?> GetNextContractNumberAsync(int year)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@Year", year);
+        p.Add("@NextContractNumber", dbType: DbType.String, size: 20, direction: ParameterDirection.Output);
+
+        await db.ExecuteAsync(
+            "dbo.usp_Property_NextContractNumber", p, commandType: CommandType.StoredProcedure);
+
+        return p.Get<string?>("@NextContractNumber");
     }
 }

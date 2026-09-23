@@ -1,0 +1,219 @@
+@page "/admin/stats/sales"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IDashboardRepository DashboardRepo
+<PageTitle>Борлуулалтын статистик</PageTitle>
+
+<div class="ss">
+    <SiteHeader />
+
+    <div class="ss-container">
+        <div class="ss-top">
+            <div>
+                <h1 class="ss-h1">Борлуулалтын статистик</h1>
+                <p class="ss-sub">Систем даяарх сарын борлуулалтын трэнд ба агентуудын чансаа</p>
+            </div>
+
+            <div class="ss-picker">
+                <MudSelect T="int" Value="_year" ValueChanged="OnYearChanged" Label="Жил"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var y in YearOptions)
+                    {
+                        <MudSelectItem T="int" Value="@y">@y</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="int" Value="_month" ValueChanged="OnMonthChanged" Label="Сар (чансаанд)"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        var mm = m;
+                        <MudSelectItem T="int" Value="@mm">@MonthName(mm)</MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ss-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else
+        {
+            <!-- Трэнд -->
+            <div class="ss-card">
+                <div class="ss-card-h">@_year оны сар бүрийн борлуулалт (систем даяар)</div>
+                @if (_trend.Sum(x => x.SoldCount) == 0)
+                {
+                    <div class="ss-empty">
+                        <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Large" />
+                        <p>@_year онд бүртгэгдсэн борлуулалт алга байна.</p>
+                    </div>
+                }
+                else
+                {
+                    <MudChart T="double"
+                              ChartType="ChartType.Bar"
+                              ChartSeries="@_series"
+                              XAxisLabels="@_labels"
+                              Width="100%" Height="360px"
+                              ChartOptions="@_options" />
+                }
+            </div>
+
+            <!-- Чансаа -->
+            <div class="ss-card">
+                <div class="ss-card-h">@MonthName(_month) — агентуудын чансаа</div>
+                @if (_leaderboard.Count == 0)
+                {
+                    <div class="ss-empty">
+                        <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Large" />
+                        <p>Энэ сард борлуулалт бүртгэгдээгүй байна.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ss-table-wrap">
+                        <table class="ss-table">
+                            <thead>
+                                <tr>
+                                    <th class="ss-rank">#</th>
+                                    <th>Агент</th>
+                                    <th class="ss-num">Шинэ лист</th>
+                                    <th class="ss-num">Борлуулалт</th>
+                                    <th class="ss-num">Дүн</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    var rank = 1;
+                                }
+                                @foreach (var a in _leaderboard)
+                                {
+                                    <tr>
+                                        <td class="ss-rank"><span class="ss-badge @RankClass(rank)">@rank</span></td>
+                                        <td>@a.FullName</td>
+                                        <td class="ss-num">@a.PropertyCount</td>
+                                        <td class="ss-num">@a.ClosureCount</td>
+                                        <td class="ss-num">@Money(a.SoldTotalAmount)</td>
+                                    </tr>
+                                    rank++;
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <p class="ss-note">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+                Дээрх трэнд нэг хаалтыг нэг л удаа тоолно (компанийн нийт дүн). Доорх чансаанд харин
+                хамтран борлуулсан хаалт хоёр агентад тус бүрд нь бүтэн дүнгээр орсон болно.
+            </p>
+        }
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private int _year = DateTime.Today.Year;
+    private int _month = DateTime.Today.Month;
+
+    private List<MonthlySalesPoint> _trend = new();
+    private List<AgentLeaderboardRow> _leaderboard = new();
+
+    private List<ChartSeries<double>> _series = new();
+    private string[] _labels = Array.Empty<string>();
+
+    private readonly ChartOptions _options = new()
+    {
+        ChartPalette = new[] { "#2c7a7b", "#dd6b20" }
+    };
+
+    private static readonly string[] MonthNames =
+    {
+        "1-р сар", "2-р сар", "3-р сар", "4-р сар", "5-р сар", "6-р сар",
+        "7-р сар", "8-р сар", "9-р сар", "10-р сар", "11-р сар", "12-р сар"
+    };
+
+    private static string MonthName(int m) => MonthNames[m - 1];
+
+    private IEnumerable<int> YearOptions
+    {
+        get
+        {
+            var current = DateTime.Today.Year;
+            for (var y = current; y >= current - 4; y--) yield return y;
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task OnYearChanged(int year)
+    {
+        _year = year;
+        await LoadAsync();
+    }
+
+    private async Task OnMonthChanged(int month)
+    {
+        _month = month;
+        await LoadLeaderboardAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _trend = await DashboardRepo.GetAdminSalesTrendAsync(_year);
+        }
+        catch
+        {
+            _trend = new();
+        }
+        RebuildChart();
+
+        await LoadLeaderboardAsync(setLoading: false);
+        _loading = false;
+    }
+
+    private async Task LoadLeaderboardAsync(bool setLoading = true)
+    {
+        if (setLoading) _loading = true;
+        try
+        {
+            _leaderboard = await DashboardRepo.GetAdminMonthlyLeaderboardAsync(_year, _month);
+        }
+        catch
+        {
+            _leaderboard = new();
+        }
+        if (setLoading) _loading = false;
+    }
+
+    private void RebuildChart()
+    {
+        _labels = _trend.Select(x => MonthName(x.MonthNumber)).ToArray();
+        _series = new List<ChartSeries<double>>
+        {
+            new ChartSeries<double>
+            {
+                Name = "Борлуулалтын дүн (сая ₮)",
+                Data = _trend.Select(x => (double)(x.SoldTotalAmount / 1_000_000m)).ToArray()
+            }
+        };
+    }
+
+    private static string RankClass(int rank) => rank switch
+    {
+        1 => "gold",
+        2 => "silver",
+        3 => "bronze",
+        _ => ""
+    };
+
+    private static string Money(decimal v) =>
+        v <= 0 ? "-" : v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+}

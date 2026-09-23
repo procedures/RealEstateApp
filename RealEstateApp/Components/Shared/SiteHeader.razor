@@ -59,6 +59,9 @@
                                 <a href="/agent/property/new" class="hd-mitem">
                                     <MudIcon Icon="@Icons.Material.Filled.AddHome" Size="Size.Small" /> Шинэ хөрөнгө
                                 </a>
+                                <a href="/agent/stats" class="hd-mitem">
+                                    <MudIcon Icon="@Icons.Material.Filled.Insights" Size="Size.Small" /> Миний статистик
+                                </a>
 
                                 @if (auth.User.IsAdmin())
                                 {
@@ -73,6 +76,12 @@
                                     </a>
                                     <a href="/admin/report" class="hd-mitem">
                                         <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" /> Агентын тайлан
+                                    </a>
+                                    <a href="/admin/stats/sales" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" /> Борлуулалтын статистик
+                                    </a>
+                                    <a href="/admin/stats/properties" class="hd-mitem">
+                                        <MudIcon Icon="@Icons.Material.Filled.PieChart" Size="Size.Small" /> Хөрөнгийн статистик
                                     </a>
                                     <a href="/admin/viewings" class="hd-mitem">
                                         <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Size="Size.Small" />

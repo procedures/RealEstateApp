@@ -1,0 +1,217 @@
+@page "/admin/stats/properties"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IDashboardRepository DashboardRepo
+<PageTitle>Хөрөнгийн статистик</PageTitle>
+
+<div class="ps">
+    <SiteHeader />
+
+    <div class="ps-container">
+        <div class="ps-top">
+            <div>
+                <h1 class="ps-h1">Хөрөнгийн статистик</h1>
+                <p class="ps-sub">Дүүрэг/хотхойн задаргаа болон хөрөнгийн урсгалын тойм</p>
+            </div>
+
+            <MudSelect T="int" Value="_year" ValueChanged="OnYearChanged" Label="Жил (урсгалд)"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="ps-yearpick">
+                @foreach (var y in YearOptions)
+                {
+                    <MudSelectItem T="int" Value="@y">@y</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ps-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else
+        {
+            <!-- Урсгалын тойм -->
+            <div class="ps-card">
+                <div class="ps-card-h">@_year оны хөрөнгийн урсгал</div>
+                @if (_funnel is null || _funnel.Months.All(m => m.NewCount == 0 && m.PublishedCount == 0 && m.ClosedCount == 0))
+                {
+                    <div class="ps-empty">
+                        <MudIcon Icon="@Icons.Material.Filled.Timeline" Size="Size.Large" />
+                        <p>@_year онд өгөгдөл алга байна.</p>
+                    </div>
+                }
+                else
+                {
+                    <MudChart T="double"
+                              ChartType="ChartType.Bar"
+                              ChartSeries="@_funnelSeries"
+                              XAxisLabels="@_funnelLabels"
+                              Width="100%" Height="360px"
+                              ChartOptions="@_funnelOptions" />
+                    <div class="ps-legend">
+                        <span class="ps-lg"><i class="ps-dot" style="background:#2c7a7b"></i> Шинэ бүртгэл</span>
+                        <span class="ps-lg"><i class="ps-dot" style="background:#3182ce"></i> Нийтлэгдсэн</span>
+                        <span class="ps-lg"><i class="ps-dot" style="background:#dd6b20"></i> Хаагдсан</span>
+                    </div>
+                }
+                @if (_funnel is not null && _funnel.CancelledTotal > 0)
+                {
+                    <p class="ps-note">
+                        <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+                        Нийт <b>@_funnel.CancelledTotal</b> лист цуцлагдсан байна (огноогүй тул сараар харуулаагүй, нийт дүн).
+                    </p>
+                }
+            </div>
+
+            <!-- Дүүрэг/Хотхойн задаргаа -->
+            <div class="ps-card">
+                <div class="ps-card-h-row">
+                    <div class="ps-card-h">Байршлын задаргаа (бүх цаг)</div>
+                    <div class="ps-toggle">
+                        <button class="ps-tbtn @(_scope == Scope.District ? "active" : "")"
+                                @onclick="() => _scope = Scope.District">Дүүргээр</button>
+                        <button class="ps-tbtn @(_scope == Scope.Complex ? "active" : "")"
+                                @onclick="() => _scope = Scope.Complex">Хотхонгоор</button>
+                    </div>
+                </div>
+
+                @{
+                    var rows = _scope == Scope.District ? _breakdown?.Districts : _breakdown?.Complexes;
+                }
+                @if (rows is null || rows.Count == 0)
+                {
+                    <div class="ps-empty">
+                        <MudIcon Icon="@Icons.Material.Filled.LocationCity" Size="Size.Large" />
+                        <p>Өгөгдөл алга байна.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ps-table-wrap">
+                        <table class="ps-table">
+                            <thead>
+                                <tr>
+                                    <th>@(_scope == Scope.District ? "Дүүрэг" : "Хотхон")</th>
+                                    <th class="ps-num">Нийт</th>
+                                    <th class="ps-num">Идэвхтэй</th>
+                                    <th class="ps-num">Дундаж үнэ</th>
+                                    <th class="ps-num">Дундаж ₮/м²</th>
+                                    <th class="ps-num">Борлуулалт</th>
+                                    <th class="ps-num">Борлуулалтын дүн</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in rows)
+                                {
+                                    <tr>
+                                        <td>@r.Name</td>
+                                        <td class="ps-num">@r.TotalCount</td>
+                                        <td class="ps-num">@r.ActiveCount</td>
+                                        <td class="ps-num">@Money(r.AvgPrice)</td>
+                                        <td class="ps-num">@Money(r.AvgPricePerSqm)</td>
+                                        <td class="ps-num">@r.SoldCount</td>
+                                        <td class="ps-num">@Money(r.SoldTotalAmount)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private enum Scope { District, Complex }
+
+    private bool _loading = true;
+    private int _year = DateTime.Today.Year;
+    private Scope _scope = Scope.District;
+
+    private PropertyFunnelResult? _funnel;
+    private LocationBreakdownResult? _breakdown;
+
+    private List<ChartSeries<double>> _funnelSeries = new();
+    private string[] _funnelLabels = Array.Empty<string>();
+
+    private readonly ChartOptions _funnelOptions = new()
+    {
+        ChartPalette = new[] { "#2c7a7b", "#3182ce", "#dd6b20" }
+    };
+
+    private static readonly string[] MonthNames =
+    {
+        "1-р сар", "2-р сар", "3-р сар", "4-р сар", "5-р сар", "6-р сар",
+        "7-р сар", "8-р сар", "9-р сар", "10-р сар", "11-р сар", "12-р сар"
+    };
+
+    private static string MonthName(int m) => MonthNames[m - 1];
+
+    private IEnumerable<int> YearOptions
+    {
+        get
+        {
+            var current = DateTime.Today.Year;
+            for (var y = current; y >= current - 4; y--) yield return y;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            _breakdown = await DashboardRepo.GetAdminLocationBreakdownAsync(15);
+        }
+        catch
+        {
+            _breakdown = null;
+        }
+        await LoadFunnelAsync(setLoading: false);
+        _loading = false;
+    }
+
+    private async Task OnYearChanged(int year)
+    {
+        _year = year;
+        await LoadFunnelAsync();
+    }
+
+    private async Task LoadFunnelAsync(bool setLoading = true)
+    {
+        if (setLoading) _loading = true;
+        try
+        {
+            _funnel = await DashboardRepo.GetAdminPropertyFunnelAsync(_year);
+        }
+        catch
+        {
+            _funnel = null;
+        }
+        RebuildFunnelChart();
+        if (setLoading) _loading = false;
+    }
+
+    private void RebuildFunnelChart()
+    {
+        if (_funnel is null)
+        {
+            _funnelLabels = Array.Empty<string>();
+            _funnelSeries = new();
+            return;
+        }
+
+        _funnelLabels = _funnel.Months.Select(x => MonthName(x.MonthNumber)).ToArray();
+        _funnelSeries = new List<ChartSeries<double>>
+        {
+            new ChartSeries<double> { Name = "Шинэ", Data = _funnel.Months.Select(x => (double)x.NewCount).ToArray() },
+            new ChartSeries<double> { Name = "Нийтлэгдсэн", Data = _funnel.Months.Select(x => (double)x.PublishedCount).ToArray() },
+            new ChartSeries<double> { Name = "Хаагдсан", Data = _funnel.Months.Select(x => (double)x.ClosedCount).ToArray() },
+        };
+    }
+
+    private static string Money(decimal? v) =>
+        v is null or <= 0 ? "-" : v.Value.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+}

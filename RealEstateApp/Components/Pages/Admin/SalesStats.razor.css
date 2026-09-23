@@ -1,0 +1,125 @@
+.ss {
+    min-height: 100vh;
+    background: #f7fafc;
+}
+
+.ss-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+
+.ss-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.ss-h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+}
+
+.ss-sub {
+    color: #718096;
+    margin: 4px 0 0;
+    font-size: .95rem;
+}
+
+.ss-picker {
+    display: flex;
+    gap: 10px;
+    min-width: 280px;
+}
+
+.ss-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.ss-card-h {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 14px;
+    font-size: 1.05rem;
+}
+
+.ss-table-wrap { overflow-x: auto; }
+
+.ss-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ss-table th {
+    text-align: left;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #a0aec0;
+    padding: 10px 12px;
+    border-bottom: 2px solid #edf2f7;
+}
+
+.ss-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #2d3748;
+}
+
+.ss-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.ss-rank { width: 48px; text-align: center; }
+
+.ss-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #edf2f7;
+    color: #4a5568;
+    font-weight: 700;
+    font-size: .85rem;
+}
+
+.ss-badge.gold   { background: #f6e05e; color: #744210; }
+.ss-badge.silver { background: #e2e8f0; color: #2d3748; }
+.ss-badge.bronze { background: #f6ad55; color: #7b341e; }
+
+.ss-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #718096;
+    font-size: .82rem;
+    margin: 4px 0 0;
+}
+
+.ss-center, .ss-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    color: #a0aec0;
+}
+
+@media (max-width: 640px) {
+    .ss-top { align-items: stretch; }
+    .ss-picker { flex-direction: column; }
+}

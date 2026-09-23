@@ -5,6 +5,8 @@
 @using RealEstateApp.Data.Repositories
 @inject IPropertyRepository PropertyRepo
 @inject IDashboardRepository DashboardRepo
+@inject ILookupRepository LookupRepo
+@inject IAgentRepository AgentRepo
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 <PageTitle>Админ самбар</PageTitle>
@@ -78,7 +80,7 @@
             @foreach (var t in Tabs)
             {
                 var tab = t;
-                <button class="ad-tab @(_status == tab.Status ? "active" : "")"
+                <button class="ad-tab @(_filter.Status == tab.Status ? "active" : "")"
                         @onclick="() => SelectTab(tab.Status)">
                     @tab.Label
                     @if (tab.Status == 2 && _pendingCount > 0)
@@ -87,6 +89,87 @@
                     }
                 </button>
             }
+        </div>
+
+        <!-- Дэлгэрэнгүй шүүлтүүр -->
+        <div class="ad-filters">
+            <div class="ad-filters-grid">
+                <MudSelect T="int?" @bind-Value="_filter.PropertyTypeId" Label="Төрөл"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var t in _lookups.PropertyTypes)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)t.PropertyTypeId)">@t.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudNumericField T="decimal?" @bind-Value="_filter.MinPrice" Label="Доод үнэ"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0" />
+
+                <MudNumericField T="int?" @bind-Value="_filter.RoomCount" Label="Өрөөний тоо"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" />
+
+                <MudSelect T="int?" @bind-Value="_filter.DistrictId" Label="Дүүрэг"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var d in _lookups.Districts)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)d.DistrictId)">@d.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudNumericField T="decimal?" @bind-Value="_filter.MaxPrice" Label="Дээд үнэ"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0" />
+
+                <MudSelect T="int?" @bind-Value="_filter.AgentId" Label="Агент"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var a in _agents)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)a.AgentId)">@a.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" @bind-Value="_filter.LocationDescription" Label="Байршил"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var l in _locationLookups.LocationDescriptions)
+                    {
+                        <MudSelectItem T="string" Value="@l">@l</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="int?" @bind-Value="_filter.TransactionTypeId" Label="Худалдаа/Түрээс"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var t in _lookups.TransactionTypes)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)t.TransactionTypeId)">@t.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="int?" @bind-Value="_filter.Status" Label="Төлөв"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var t in Tabs.Where(t => t.Status is not null))
+                    {
+                        <MudSelectItem T="int?" Value="@t.Status">@t.Label</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" @bind-Value="_filter.ComplexName" Label="Хотхоны нэр"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var c in _locationLookups.ComplexNames)
+                    {
+                        <MudSelectItem T="string" Value="@c.ComplexName">@c.ComplexName</MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+
+            <div class="ad-filters-actions">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Search" OnClick="ApplyFiltersAsync">
+                    Хайх
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                           OnClick="ClearFiltersAsync">
+                    Цэвэрлэх
+                </MudButton>
+            </div>
         </div>
 
         @if (_loading)
@@ -223,10 +306,15 @@
     private bool _loading = true, _busy;
     private int _adminId;
     private string _userName = "";
-    private int? _status = 2;                    // Анхдагч: хүлээгдэж буй
+    private PropertyFilter _filter = new() { Status = 2 };  // Анхдагч: хүлээгдэж буй
     private (int Id, int Action)? _confirm;      // Баталгаажуулж буй мөр ба үйлдэл
     private int _pendingCount;
     private List<PropertyListItem> _items = new();
+
+    // Шүүлтүүрийн сонголтууд
+    private LookupData _lookups = new();
+    private PropertyLocationLookups _locationLookups = new();
+    private List<AgentAdminItem> _agents = new();
 
     // Агентуудын чансаа
     private List<AgentLeaderboardRow> _leaders = new();
@@ -238,6 +326,12 @@
         var auth = await AuthState;
         _adminId = auth.User.GetAgentId();
         _userName = auth.User.GetFullName();
+
+        _lookups = await LookupRepo.GetAllAsync();
+        _locationLookups = await PropertyRepo.GetLocationLookupsAsync();
+        var agentsRes = await AgentRepo.ListAdminAsync(null, null, null, null, 1, 1000);
+        _agents = agentsRes.Items.OrderBy(a => a.FullName).ToList();
+
         await LoadStatsAsync();
         await LoadAsync();
     }
@@ -269,16 +363,14 @@
         _loading = true;
         _confirm = null;
 
-        var res = await PropertyRepo.ListAsync(new PropertyFilter
-        {
-            OnlyPublished = false,     // админ бүх төлөвийг харна
-            Status = _status,
-            PageNumber = 1,
-            PageSize = 100
-        });
+        _filter.OnlyPublished = false;   // админ бүх төлөвийг харна
+        _filter.PageNumber = 1;
+        _filter.PageSize = 100;
+
+        var res = await PropertyRepo.ListAsync(_filter);
         _items = res.Items.ToList();
 
-        // Хүлээгдэж буйн тоог тусад нь
+        // Хүлээгдэж буйн тоог тусад нь (шүүлтүүрээс үл хамааран)
         var pending = await PropertyRepo.ListAsync(new PropertyFilter
         {
             OnlyPublished = false,
@@ -293,7 +385,15 @@
 
     private async Task SelectTab(int? status)
     {
-        _status = status;
+        _filter.Status = status;
+        await LoadAsync();
+    }
+
+    private async Task ApplyFiltersAsync() => await LoadAsync();
+
+    private async Task ClearFiltersAsync()
+    {
+        _filter = new PropertyFilter { Status = 2 };
         await LoadAsync();
     }
 

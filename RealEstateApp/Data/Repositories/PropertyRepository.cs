@@ -47,6 +47,9 @@ public class PropertyRepository : IPropertyRepository
         p.Add("@MinArea", f.MinArea);
         p.Add("@MaxArea", f.MaxArea);
         p.Add("@HasGarage", f.HasGarage);
+        p.Add("@AgentId", f.AgentId);
+        p.Add("@ComplexName", f.ComplexName);
+        p.Add("@LocationDescription", f.LocationDescription);
         p.Add("@SortBy", f.SortBy);
 
         var rows = (await db.QueryAsync<PropertyListItem>(

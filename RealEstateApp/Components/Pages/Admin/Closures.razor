@@ -14,15 +14,65 @@
         <div class="ad-top">
             <h1 class="ad-h1">Хаалтын хүсэлтүүд</h1>
             <p class="ad-sub">
-                Шийдвэрлэхийг хүлээж буй <b>@_items.Count</b> хүсэлт
-                @if (_items.Any(x => x.HasMissingInfo))
+                Шийдвэрлэхийг хүлээж буй <b>@_allItems.Count</b> хүсэлт
+                @if (_items.Count != _allItems.Count)
+                {
+                    <span>· шүүлтүүрт: <b>@_items.Count</b></span>
+                }
+                @if (_allItems.Any(x => x.HasMissingInfo))
                 {
                     <span class="ad-warn-inline">
                         · <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" />
-                        @_items.Count(x => x.HasMissingInfo) хүсэлтэд мэдээлэл дутуу
+                        @_allItems.Count(x => x.HasMissingInfo) хүсэлтэд мэдээлэл дутуу
                     </span>
                 }
             </p>
+        </div>
+
+        <!-- Шүүлтүүр -->
+        <div class="ad-filters">
+            <div class="ad-filters-grid">
+                <MudSelect T="string" @bind-Value="_fDistrict" Label="Дүүрэг"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var d in DistrictOptions)
+                    {
+                        <MudSelectItem T="string" Value="@d">@d</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" @bind-Value="_fComplexName" Label="Хотхоны нэр"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var c in ComplexNameOptions)
+                    {
+                        <MudSelectItem T="string" Value="@c">@c</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" @bind-Value="_fAgent" Label="Агент"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var a in AgentOptions)
+                    {
+                        <MudSelectItem T="string" Value="@a">@a</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudNumericField T="decimal?" @bind-Value="_fMinPrice" Label="Доод үнэ"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0" />
+
+                <MudNumericField T="decimal?" @bind-Value="_fMaxPrice" Label="Дээд үнэ"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" Min="0" />
+            </div>
+
+            <div class="ad-filters-actions">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Search" OnClick="ApplyFilters">
+                    Хайх
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                           OnClick="ClearFilters">
+                    Цэвэрлэх
+                </MudButton>
+            </div>
         </div>
 
         @if (_loading)
@@ -33,7 +83,7 @@
         {
             <div class="ad-empty">
                 <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Size="Size.Large" />
-                <p>Хүлээгдэж буй хаалтын хүсэлт байхгүй байна.</p>
+                <p>@(_allItems.Count == 0 ? "Хүлээгдэж буй хаалтын хүсэлт байхгүй байна." : "Шүүлтүүрт тохирох хүсэлт олдсонгүй.")</p>
             </div>
         }
         else
@@ -266,8 +316,25 @@
     private int? _openId;
     private ClosureDetailDto? _detail;
 
-    private List<PendingClosure> _items = new();
+    private List<PendingClosure> _allItems = new();  // Бүх хүлээгдэж буй хүсэлт (шүүлтүүрээр үл хамааран)
+    private List<PendingClosure> _items = new();      // Шүүлтүүр хийсний дараах харагдах жагсаалт
     private Dictionary<int, string> _notes = new();
+
+    // Шүүлтүүр (PendingClosure загварт байгаа талбаруудаар — Төрөл/Худалдаа-Түрээс/Өрөө/Төлөв
+    // энэ жагсаалтад ороогүй тул шүүлтүүрт алга, учир нь usp_PropertyClosure_ListPending
+    // эдгээр талбарыг буцаадаггүй)
+    private string? _fDistrict;
+    private string? _fComplexName;
+    private string? _fAgent;
+    private decimal? _fMinPrice;
+    private decimal? _fMaxPrice;
+
+    private List<string> DistrictOptions =>
+        _allItems.Select(x => x.DistrictName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).ToList();
+    private List<string> ComplexNameOptions =>
+        _allItems.Select(x => x.ComplexName).Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n!).Distinct().OrderBy(n => n).ToList();
+    private List<string> AgentOptions =>
+        _allItems.Select(x => x.SubmittedByAgent).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -284,10 +351,34 @@
         _openId = null;
         _detail = null;
 
-        _items = await ClosureRepo.ListPendingAsync();
-        _notes = _items.ToDictionary(x => x.ClosureId, _ => "");
+        _allItems = await ClosureRepo.ListPendingAsync();
+        _notes = _allItems.ToDictionary(x => x.ClosureId, _ => "");
+        ApplyFilters();
 
         _loading = false;
+    }
+
+    private void ApplyFilters()
+    {
+        IEnumerable<PendingClosure> q = _allItems;
+
+        if (!string.IsNullOrWhiteSpace(_fDistrict)) q = q.Where(x => x.DistrictName == _fDistrict);
+        if (!string.IsNullOrWhiteSpace(_fComplexName)) q = q.Where(x => x.ComplexName == _fComplexName);
+        if (!string.IsNullOrWhiteSpace(_fAgent)) q = q.Where(x => x.SubmittedByAgent == _fAgent);
+        if (_fMinPrice is > 0) q = q.Where(x => x.ListedPrice >= _fMinPrice);
+        if (_fMaxPrice is > 0) q = q.Where(x => x.ListedPrice <= _fMaxPrice);
+
+        _items = q.ToList();
+    }
+
+    private void ClearFilters()
+    {
+        _fDistrict = null;
+        _fComplexName = null;
+        _fAgent = null;
+        _fMinPrice = null;
+        _fMaxPrice = null;
+        ApplyFilters();
     }
 
     private async Task ToggleDetailAsync(int closureId)

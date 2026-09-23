@@ -14,6 +14,9 @@ public class PropertyFilter
     public int? RoomCount { get; set; }
     public bool? HasGarage { get; set; }
     public string? Search { get; set; }
+    public int? AgentId { get; set; }
+    public string? ComplexName { get; set; }
+    public string? LocationDescription { get; set; }
     public string SortBy { get; set; } = "newest";
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 12;

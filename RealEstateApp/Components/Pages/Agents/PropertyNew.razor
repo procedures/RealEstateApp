@@ -76,7 +76,7 @@
                     <MudAutocomplete T="string" @bind-Value="_input.ComplexName" Label="Хотхоны нэр"
                                      Variant="Variant.Outlined" Margin="Margin.Dense"
                                      SearchFunc="SearchComplexNames" ResetValueOnEmptyText="true"
-                                     CoerceText="true" Clearable="true" MaxItems="15"
+                                     CoerceText="true" CoerceValue="true" Clearable="true" MaxItems="15"
                                      HelperText="@ComplexAvgHint" />
 
                     <div class="pn-full">
@@ -84,7 +84,7 @@
                                          Label="Байршил / томоохон байршил"
                                          Variant="Variant.Outlined" Margin="Margin.Dense"
                                          SearchFunc="SearchLocationDescriptions" ResetValueOnEmptyText="true"
-                                         CoerceText="true" Clearable="true" MaxItems="15" />
+                                         CoerceText="true" CoerceValue="true" Clearable="true" MaxItems="15" />
                     </div>
 
                     <div class="pn-full">

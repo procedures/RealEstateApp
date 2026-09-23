@@ -4,6 +4,7 @@
 @using RealEstateApp.Data.Repositories
 @using RealEstateApp.Services
 @using RealEstateApp.Components.Shared
+@inject IConfiguration Configuration
 @inject IPropertyRepository PropertyRepo
 @inject IPropertyImageRepository ImageRepo
 @inject IViewingRepository ViewingRepo
@@ -361,11 +362,16 @@
             {
                 _tourSent = true;
 
-                // Telegram мэдэгдэл (фон дээр, хариу хүлээхгүй)
                 var propName = _p?.Title ?? _p?.ComplexName ?? _p?.Address ?? $"№{Id}";
+
+                // appsettings.json -> AppSettings:BaseUrl
+                var baseUrl = Configuration["AppSettings:BaseUrl"]?.TrimEnd('/');
+                var propertyUrl = $"{baseUrl}/property/{Id}";
+
+                // Telegram мэдэгдэл (фон дээр, хариу хүлээхгүй)
                 var msg =
                     $"🏠 <b>Шинэ үзлэгийн хүсэлт</b>\n\n" +
-                    $"<b>Хөрөнгө:</b> {Esc(propName)}\n" +
+                    $"<b>Хөрөнгө:</b> <a href=\"{propertyUrl}\">{Esc(propName)}</a>\n" +
                     $"<b>Нэр:</b> {Esc(_tour.FullName)}\n" +
                     $"<b>Утас:</b> {Esc(_tour.Phone)}\n" +
                     (_tour.PreferredDate.HasValue ? $"<b>Үзэх огноо:</b> {_tour.PreferredDate:yyyy-MM-dd}\n" : "") +

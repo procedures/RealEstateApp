@@ -95,13 +95,18 @@
                             }
                         </MudSelect>
 
-                        <MudTextField T="string" @bind-Value="_input.ComplexName" Label="Хотхоны нэр"
-                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudAutocomplete T="string" @bind-Value="_input.ComplexName" Label="Хотхоны нэр"
+                                         Variant="Variant.Outlined" Margin="Margin.Dense"
+                                         SearchFunc="SearchComplexNames" ResetValueOnEmptyText="true"
+                                         CoerceText="true" Clearable="true" MaxItems="15"
+                                         HelperText="@ComplexAvgHint" />
 
                         <div class="pn-full">
-                            <MudTextField T="string" @bind-Value="_input.LocationDescription"
-                                          Label="Байршил / томоохон байршил"
-                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudAutocomplete T="string" @bind-Value="_input.LocationDescription"
+                                             Label="Байршил / томоохон байршил"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             SearchFunc="SearchLocationDescriptions" ResetValueOnEmptyText="true"
+                                             CoerceText="true" Clearable="true" MaxItems="15" />
                         </div>
 
                         <div class="pn-full">
@@ -239,6 +244,7 @@
     private MudForm _form = default!;
     private LookupData _lookups = new();
     private PropertyInput _input = new();
+    private PropertyLocationLookups _locationLookups = new();
 
     private bool _loading = true, _saving, _notFound, _noAccess, _closed;
     private int _agentId, _status;
@@ -250,6 +256,7 @@
         var isAdmin = auth.User.IsAdmin();
 
         _lookups = await LookupRepo.GetAllAsync();
+        _locationLookups = await PropertyRepo.GetLocationLookupsAsync(Id);
         var d = await PropertyRepo.GetByIdAsync(Id);
 
         if (d is null)
@@ -285,6 +292,48 @@
         }
 
         _loading = false;
+    }
+
+    // Хотхоны нэрийн санал болголт (өмнө нь бүртгэгдсэн нэрсээс)
+    private Task<IEnumerable<string>> SearchComplexNames(string value, CancellationToken token)
+    {
+        IEnumerable<string> all = _locationLookups.ComplexNames.Select(c => c.ComplexName);
+        var result = string.IsNullOrWhiteSpace(value)
+            ? all.Take(15)
+            : all.Where(n => n.Contains(value, StringComparison.OrdinalIgnoreCase)).Take(15);
+        return Task.FromResult(result);
+    }
+
+    // Байршлын тайлбарын санал болголт (өмнө нь бүртгэгдсэн утгуудаас)
+    private Task<IEnumerable<string>> SearchLocationDescriptions(string value, CancellationToken token)
+    {
+        IEnumerable<string> all = _locationLookups.LocationDescriptions;
+        var result = string.IsNullOrWhiteSpace(value)
+            ? all.Take(15)
+            : all.Where(n => n.Contains(value, StringComparison.OrdinalIgnoreCase)).Take(15);
+        return Task.FromResult(result);
+    }
+
+    // Сонгосон хотхойгоор өмнө бүртгэгдсэн зарын тоо + дундаж үнэлгээ
+    // (засварлаж буй өөрийн зарыг дундажаас хассан, GetLocationLookupsAsync(Id) дуудсан тул)
+    private string? ComplexAvgHint
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_input.ComplexName)) return null;
+
+            var stat = _locationLookups.ComplexNames.FirstOrDefault(c =>
+                string.Equals(c.ComplexName, _input.ComplexName.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (stat is null) return null;
+
+            var parts = new List<string> { $"{stat.PropertyCount} бүртгэлтэй" };
+            if (stat.AvgPrice is > 0)
+                parts.Add($"дундаж үнэ: {stat.AvgPrice.Value.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture)}₮");
+            if (stat.AvgPricePerSqm is > 0)
+                parts.Add($"{stat.AvgPricePerSqm.Value.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture)}₮/м²");
+
+            return string.Join(" · ", parts);
+        }
     }
 
     private string PricePerSqm

@@ -20,6 +20,7 @@ public interface IPropertyRepository
     Task<ProcResult> SetTitleAsync(int propertyId, string? title, int actorAgentId);
     Task<PropertyOwnerInfo?> GetOwnerInfoAsync(int propertyId);
     Task<ProcResult> SetOwnerInfoAsync(int propertyId, PropertyOwnerInfo info, int actorAgentId);
+    Task<PropertyLocationLookups> GetLocationLookupsAsync(int? excludePropertyId = null);
 }
 
 public class PropertyRepository : IPropertyRepository
@@ -295,5 +296,25 @@ public class PropertyRepository : IPropertyRepository
         return new ProcResult(
             p.Get<int>("@ResponseCode"),
             p.Get<string>("@ResponseMessage") ?? "");
+    }
+
+    public async Task<PropertyLocationLookups> GetLocationLookupsAsync(int? excludePropertyId = null)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@ExcludePropertyId", excludePropertyId);
+
+        using var multi = await db.QueryMultipleAsync(
+            "dbo.usp_Property_LocationLookups", p, commandType: CommandType.StoredProcedure);
+
+        var complexNames = (await multi.ReadAsync<ComplexNameStat>()).ToList();
+        var locationDescriptions = (await multi.ReadAsync<string>()).ToList();
+
+        return new PropertyLocationLookups
+        {
+            ComplexNames = complexNames,
+            LocationDescriptions = locationDescriptions
+        };
     }
 }

@@ -45,6 +45,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ISiteBrandService, SiteBrandService>();
 builder.Services.AddScoped<IViewingRepository, ViewingRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<ILocationAdminRepository, LocationAdminRepository>();
 builder.Services.AddHttpClient();
 builder.Services.Configure<TelegramSettings>(builder.Configuration.GetSection("Telegram"));
 builder.Services.AddSingleton<ITelegramNotifier, TelegramNotifier>();

@@ -1,0 +1,399 @@
+@page "/admin/locations"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject ILocationAdminRepository LocationAdminRepo
+@inject ISnackbar Snackbar
+<PageTitle>Байршил / Хотхон удирдах</PageTitle>
+
+<div class="lm">
+    <SiteHeader />
+
+    <div class="lm-container">
+        <div class="lm-top">
+            <h1 class="lm-h1">Байршил / Хотхон удирдах</h1>
+            <p class="lm-sub">
+                Энд нэмсэн утгууд хөрөнгө бүртгэх маягтын Байршил/Хотхон талбарт санал болгогдоно.
+                Агент энэ жагсаалтад байхгүй шинэ утга чөлөөтэй оруулж болно — энэ хуудас зөвхөн
+                урьдчилан бэлдэж, засаж цэгцлэх зориулалттай.
+            </p>
+        </div>
+
+        <div class="lm-cols">
+            <!-- ============ БАЙРШИЛ ============ -->
+            <div class="lm-card">
+                <h3 class="lm-ch"><MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" /> Байршил</h3>
+
+                <div class="lm-add">
+                    <MudTextField T="string" @bind-Value="_newLocationName" Label="Шинэ байршил нэмэх"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="Жишээ: Зайсан"
+                                  OnKeyUp="OnLocationNameKeyUp" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                               StartIcon="@Icons.Material.Filled.Add" OnClick="AddLocationAsync">
+                        Нэмэх
+                    </MudButton>
+                </div>
+
+                @if (_loadingLocations)
+                {
+                    <div class="lm-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" /></div>
+                }
+                else if (_locations.Count == 0)
+                {
+                    <p class="lm-empty">Байршил хараахан нэмэгдээгүй байна.</p>
+                }
+                else
+                {
+                    <table class="lm-table">
+                        <thead>
+                            <tr>
+                                <th>Нэр</th>
+                                <th class="lm-num">Ашиглагдсан</th>
+                                <th class="lm-actions-h"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var loc in _locations)
+                            {
+                                <tr>
+                                    @if (_editingLocationId == loc.LocationId)
+                                    {
+                                        <td colspan="3">
+                                            <div class="lm-edit-row">
+                                                <MudTextField T="string" @bind-Value="_editName"
+                                                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                                <button type="button" class="lm-btn" disabled="@_busy" @onclick="SaveLocationRenameAsync">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                                                </button>
+                                                <button type="button" class="lm-btn outline" disabled="@_busy" @onclick="CancelEdit">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td>@loc.Name</td>
+                                        <td class="lm-num">@loc.UsageCount</td>
+                                        <td class="lm-actions">
+                                            @if (_confirmDeleteLocationId == loc.LocationId)
+                                            {
+                                                <span class="lm-confirm">Устгах уу?</span>
+                                                <button type="button" class="lm-btn danger" disabled="@_busy" @onclick="() => DeleteLocationAsync(loc.LocationId)">Тийм</button>
+                                                <button type="button" class="lm-btn outline" disabled="@_busy" @onclick="() => _confirmDeleteLocationId = null">Үгүй</button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="lm-icon-btn" @onclick="() => StartEditLocation(loc)">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                                </button>
+                                                <button type="button" class="lm-icon-btn danger" @onclick="() => _confirmDeleteLocationId = loc.LocationId">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
+                                                </button>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+
+            <!-- ============ ХОТХОН ============ -->
+            <div class="lm-card">
+                <h3 class="lm-ch"><MudIcon Icon="@Icons.Material.Filled.Apartment" Size="Size.Small" /> Хотхон</h3>
+
+                <div class="lm-add">
+                    <MudTextField T="string" @bind-Value="_newComplexName" Label="Шинэ хотхон нэмэх"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="Жишээ: Related Towers"
+                                  OnKeyUp="OnComplexNameKeyUp" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                               StartIcon="@Icons.Material.Filled.Add" OnClick="AddComplexAsync">
+                        Нэмэх
+                    </MudButton>
+                </div>
+
+                @if (_loadingComplexes)
+                {
+                    <div class="lm-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" /></div>
+                }
+                else if (_complexes.Count == 0)
+                {
+                    <p class="lm-empty">Хотхон хараахан нэмэгдээгүй байна.</p>
+                }
+                else
+                {
+                    <table class="lm-table">
+                        <thead>
+                            <tr>
+                                <th>Нэр</th>
+                                <th class="lm-num">Ашиглагдсан</th>
+                                <th class="lm-actions-h"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in _complexes)
+                            {
+                                <tr>
+                                    @if (_editingComplexId == c.ComplexId)
+                                    {
+                                        <td colspan="3">
+                                            <div class="lm-edit-row">
+                                                <MudTextField T="string" @bind-Value="_editName"
+                                                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                                <button type="button" class="lm-btn" disabled="@_busy" @onclick="SaveComplexRenameAsync">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                                                </button>
+                                                <button type="button" class="lm-btn outline" disabled="@_busy" @onclick="CancelEdit">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td>@c.Name</td>
+                                        <td class="lm-num">@c.UsageCount</td>
+                                        <td class="lm-actions">
+                                            @if (_confirmDeleteComplexId == c.ComplexId)
+                                            {
+                                                <span class="lm-confirm">Устгах уу?</span>
+                                                <button type="button" class="lm-btn danger" disabled="@_busy" @onclick="() => DeleteComplexAsync(c.ComplexId)">Тийм</button>
+                                                <button type="button" class="lm-btn outline" disabled="@_busy" @onclick="() => _confirmDeleteComplexId = null">Үгүй</button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="lm-icon-btn" @onclick="() => StartEditComplex(c)">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                                </button>
+                                                <button type="button" class="lm-icon-btn danger" @onclick="() => _confirmDeleteComplexId = c.ComplexId">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" />
+                                                </button>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private int _adminId;
+    private bool _busy;
+
+    private bool _loadingLocations = true;
+    private bool _loadingComplexes = true;
+    private List<LocationMasterItem> _locations = new();
+    private List<ComplexMasterItem> _complexes = new();
+
+    private string _newLocationName = "";
+    private string _newComplexName = "";
+
+    private int? _editingLocationId;
+    private int? _editingComplexId;
+    private string _editName = "";
+
+    private int? _confirmDeleteLocationId;
+    private int? _confirmDeleteComplexId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _adminId = auth.User.GetAgentId();
+
+        await LoadLocationsAsync();
+        await LoadComplexesAsync();
+    }
+
+    private async Task LoadLocationsAsync()
+    {
+        _loadingLocations = true;
+        try
+        {
+            _locations = await LocationAdminRepo.ListLocationsAsync();
+        }
+        catch
+        {
+            _locations = new();
+        }
+        _loadingLocations = false;
+    }
+
+    private async Task LoadComplexesAsync()
+    {
+        _loadingComplexes = true;
+        try
+        {
+            _complexes = await LocationAdminRepo.ListComplexesAsync();
+        }
+        catch
+        {
+            _complexes = new();
+        }
+        _loadingComplexes = false;
+    }
+
+    private async Task OnLocationNameKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AddLocationAsync();
+    }
+
+    private async Task OnComplexNameKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AddComplexAsync();
+    }
+
+    private async Task AddLocationAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newLocationName)) return;
+
+        _busy = true;
+        try
+        {
+            var result = await LocationAdminRepo.AddLocationAsync(_newLocationName.Trim(), _adminId);
+            Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Error);
+            if (result.Ok)
+            {
+                _newLocationName = "";
+                await LoadLocationsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        _busy = false;
+    }
+
+    private async Task AddComplexAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newComplexName)) return;
+
+        _busy = true;
+        try
+        {
+            var result = await LocationAdminRepo.AddComplexAsync(_newComplexName.Trim(), _adminId);
+            Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Error);
+            if (result.Ok)
+            {
+                _newComplexName = "";
+                await LoadComplexesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        _busy = false;
+    }
+
+    private void StartEditLocation(LocationMasterItem loc)
+    {
+        _editingComplexId = null;
+        _editingLocationId = loc.LocationId;
+        _editName = loc.Name;
+    }
+
+    private void StartEditComplex(ComplexMasterItem c)
+    {
+        _editingLocationId = null;
+        _editingComplexId = c.ComplexId;
+        _editName = c.Name;
+    }
+
+    private void CancelEdit()
+    {
+        _editingLocationId = null;
+        _editingComplexId = null;
+        _editName = "";
+    }
+
+    private async Task SaveLocationRenameAsync()
+    {
+        if (_editingLocationId is null || string.IsNullOrWhiteSpace(_editName)) return;
+
+        _busy = true;
+        try
+        {
+            var result = await LocationAdminRepo.RenameLocationAsync(_editingLocationId.Value, _editName.Trim(), _adminId);
+            Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Error);
+            if (result.Ok)
+            {
+                CancelEdit();
+                await LoadLocationsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        _busy = false;
+    }
+
+    private async Task SaveComplexRenameAsync()
+    {
+        if (_editingComplexId is null || string.IsNullOrWhiteSpace(_editName)) return;
+
+        _busy = true;
+        try
+        {
+            var result = await LocationAdminRepo.RenameComplexAsync(_editingComplexId.Value, _editName.Trim(), _adminId);
+            Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Error);
+            if (result.Ok)
+            {
+                CancelEdit();
+                await LoadComplexesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        _busy = false;
+    }
+
+    private async Task DeleteLocationAsync(int locationId)
+    {
+        _busy = true;
+        try
+        {
+            var result = await LocationAdminRepo.DeleteLocationAsync(locationId, _adminId);
+            Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Error);
+            _confirmDeleteLocationId = null;
+            if (result.Ok) await LoadLocationsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        _busy = false;
+    }
+
+    private async Task DeleteComplexAsync(int complexId)
+    {
+        _busy = true;
+        try
+        {
+            var result = await LocationAdminRepo.DeleteComplexAsync(complexId, _adminId);
+            Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Error);
+            _confirmDeleteComplexId = null;
+            if (result.Ok) await LoadComplexesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        _busy = false;
+    }
+}

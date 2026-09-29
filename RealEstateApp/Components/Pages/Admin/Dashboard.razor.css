@@ -265,6 +265,22 @@
         gap: 4px;
     }
 
+.ad-expiry {
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.ad-expiry.warn {
+    color: #9c4221;
+    background: #fffaf0;
+}
+
+.ad-expiry.danger {
+    color: #c53030;
+    background: #fff5f5;
+}
+
 .ad-foot {
     display: flex;
     justify-content: space-between;

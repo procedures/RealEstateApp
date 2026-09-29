@@ -235,6 +235,12 @@
                                 {
                                     <span><MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" /> @it.ContractNumber</span>
                                 }
+                                @if (ContractExpiryBadge(it.ContractEndDate) is { } badge)
+                                {
+                                    <span class="ag-expiry @badge.Css">
+                                        <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Small" /> @badge.Text
+                                    </span>
+                                }
                             </div>
 
                             <div class="ag-foot">
@@ -431,6 +437,17 @@
 
     private static string Initial(string name) =>
         string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[0].ToString().ToUpper();
+
+    // Гэрээ дуусах хугацааны сануулга: дууссан бол улаан, 14 хоногийн дотор бол шар
+    private static (string Text, string Css)? ContractExpiryBadge(DateTime? contractEndDate)
+    {
+        if (contractEndDate is null) return null;
+
+        var daysLeft = (contractEndDate.Value.Date - DateTime.Today).Days;
+        if (daysLeft < 0) return ("Хугацаа дууссан", "danger");
+        if (daysLeft <= 14) return ($"{daysLeft} хоногийн дараа дуусна", "warn");
+        return null;
+    }
 
     private static string StatusLabel(int s) => s switch
     {

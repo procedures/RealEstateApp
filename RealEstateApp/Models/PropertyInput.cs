@@ -6,6 +6,8 @@ public class PropertyInput
 {
     public string? ContractNumber { get; set; }
     public DateTime? ContractDate { get; set; } = DateTime.Today;
+    /// <summary>Гэрээний дуусах хугацаа — сонголтоор, дараа нь сунгаж (өөрчилж) болно.</summary>
+    public DateTime? ContractEndDate { get; set; }
 
     [Required(ErrorMessage = "Гүйлгээний төрлөө сонгоно уу")]
     public int? TransactionTypeId { get; set; }
@@ -64,6 +66,7 @@ public class PropertyInput
     {
         ContractNumber = d.ContractNumber,
         ContractDate = d.ContractDate,
+        ContractEndDate = d.ContractEndDate,
         TransactionTypeId = d.TransactionTypeId,
         PropertyTypeId = d.PropertyTypeId,
         DistrictId = d.DistrictId,

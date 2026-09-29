@@ -50,6 +50,10 @@
                                    Variant="Variant.Outlined" Margin="Margin.Dense"
                                    HelperText="Дугаарлалт энэ огноогоор явна" />
 
+                    <MudDatePicker @bind-Date="_input.ContractEndDate" Label="Гэрээний дуусах хугацаа"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                                   HelperText="Сонголтоор. Дараа нь засаж сунгаж болно." />
+
                     <div class="pn-full">
                         <MudTextField T="string" @bind-Value="_input.Title" Label="Зарын гарчиг"
                                       Variant="Variant.Outlined" Margin="Margin.Dense"
@@ -364,6 +368,11 @@
                     RepresentativeFirstName = _input.RepresentativeFirstName,
                     RepresentativeRegisterNumber = _input.RepresentativeRegisterNumber,
                 }, _agentId);
+
+                if (_input.ContractEndDate.HasValue)
+                {
+                    await PropertyRepo.SetContractEndDateAsync(newId, _input.ContractEndDate, _agentId);
+                }
 
                 // Процедур нь мессежийн төгсгөлд олгосон дугаарыг бичиж ирүүлнэ
                 Snackbar.Add(result.Message, Severity.Success);

@@ -5,6 +5,8 @@ public class PropertyDetailDto
     public int PropertyId { get; set; }
     public string? ContractNumber { get; set; }
     public DateTime? ContractDate { get; set; }
+    /// <summary>Тусад нь GetContractEndDateAsync-аар ачаалж энд бөглөнө (GetByIdAsync-ийн proc-д ороогүй).</summary>
+    public DateTime? ContractEndDate { get; set; }
     public int TransactionTypeId { get; set; }
     public string TransactionTypeName { get; set; } = "";
     public int PropertyTypeId { get; set; }

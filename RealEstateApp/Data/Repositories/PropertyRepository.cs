@@ -22,6 +22,8 @@ public interface IPropertyRepository
     Task<ProcResult> SetOwnerInfoAsync(int propertyId, PropertyOwnerInfo info, int actorAgentId);
     Task<PropertyLocationLookups> GetLocationLookupsAsync(int? excludePropertyId = null);
     Task<string?> GetNextContractNumberAsync(int year);
+    Task<DateTime?> GetContractEndDateAsync(int propertyId);
+    Task<ProcResult> SetContractEndDateAsync(int propertyId, DateTime? contractEndDate, int actorAgentId);
 }
 
 public class PropertyRepository : IPropertyRepository
@@ -335,5 +337,34 @@ public class PropertyRepository : IPropertyRepository
             "dbo.usp_Property_NextContractNumber", p, commandType: CommandType.StoredProcedure);
 
         return p.Get<string?>("@NextContractNumber");
+    }
+
+    public async Task<DateTime?> GetContractEndDateAsync(int propertyId)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@PropertyId", propertyId);
+
+        return await db.QueryFirstOrDefaultAsync<DateTime?>(
+            "dbo.usp_Property_GetContractEndDate", p, commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task<ProcResult> SetContractEndDateAsync(int propertyId, DateTime? contractEndDate, int actorAgentId)
+    {
+        using var db = _factory.Create();
+
+        var p = new DynamicParameters();
+        p.Add("@PropertyId", propertyId);
+        p.Add("@ContractEndDate", contractEndDate);
+        p.Add("@ActorAgentId", actorAgentId);
+        p.Add("@ResponseCode", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        p.Add("@ResponseMessage", dbType: DbType.String, direction: ParameterDirection.Output, size: 500);
+
+        await db.ExecuteAsync("dbo.usp_Property_SetContractEndDate", p, commandType: CommandType.StoredProcedure);
+
+        return new ProcResult(
+            p.Get<int>("@ResponseCode"),
+            p.Get<string>("@ResponseMessage") ?? "");
     }
 }

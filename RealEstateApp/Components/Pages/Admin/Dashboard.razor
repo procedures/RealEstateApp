@@ -211,6 +211,12 @@
                                 {
                                     <span><MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" /> @it.ContractNumber</span>
                                 }
+                                @if (ContractExpiryBadge(it.ContractEndDate) is { } badge)
+                                {
+                                    <span class="ad-expiry @badge.Css">
+                                        <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Small" /> @badge.Text
+                                    </span>
+                                }
                             </div>
 
                             <div class="ad-foot">
@@ -441,6 +447,17 @@
             ? $"https://picsum.photos/seed/prop{id * 100}/300/220"
             : mainImagePath;
     private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+
+    // Гэрээ дуусах хугацааны сануулга: дууссан бол улаан, 14 хоногийн дотор бол шар
+    private static (string Text, string Css)? ContractExpiryBadge(DateTime? contractEndDate)
+    {
+        if (contractEndDate is null) return null;
+
+        var daysLeft = (contractEndDate.Value.Date - DateTime.Today).Days;
+        if (daysLeft < 0) return ("Хугацаа дууссан", "danger");
+        if (daysLeft <= 14) return ($"{daysLeft} хоногийн дараа дуусна", "warn");
+        return null;
+    }
 
     private string StatusLabel(int s) => s switch
     {

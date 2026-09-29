@@ -5,6 +5,7 @@ public class PropertyListItem
     public int PropertyId { get; set; }
     public string? ContractNumber { get; set; }
     public DateTime? ContractDate { get; set; }
+    public DateTime? ContractEndDate { get; set; }
     public string TransactionTypeName { get; set; } = "";
     public string PropertyTypeName { get; set; } = "";
     public string DistrictName { get; set; } = "";

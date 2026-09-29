@@ -73,6 +73,11 @@
                         <MudDatePicker @bind-Date="_input.ContractDate" Label="Гэрээ хийсэн огноо"
                                        Variant="Variant.Outlined" Margin="Margin.Dense" />
 
+                        <MudDatePicker @bind-Date="_input.ContractEndDate" Label="Гэрээний дуусах хугацаа"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                                       HelperText="@ContractEndDateHint"
+                                       Color="@(IsContractExpired ? Color.Error : Color.Default)" />
+
                         <div class="pn-full">
                             <MudTextField T="string" @bind-Value="_input.Title" Label="Зарын гарчиг"
                                           Variant="Variant.Outlined" Margin="Margin.Dense"
@@ -275,6 +280,7 @@
         {
             _status = d.Status;
             d.Title = await PropertyRepo.GetTitleAsync(Id);
+            d.ContractEndDate = await PropertyRepo.GetContractEndDateAsync(Id);
 
             var owner = await PropertyRepo.GetOwnerInfoAsync(Id);
             if (owner is not null)
@@ -347,6 +353,15 @@
         }
     }
 
+    // Гэрээ дуусах хугацаа өнгөрсөн эсэх — талбарыг улаанаар онцолж, сунгах шаардлагатайг сануулна
+    private bool IsContractExpired =>
+        _input.ContractEndDate.HasValue && _input.ContractEndDate.Value.Date < DateTime.Today;
+
+    private string ContractEndDateHint =>
+        IsContractExpired
+            ? "Хугацаа дууссан — сунгах бол шинэ огноо сонгоод хадгална уу."
+            : "Сонголтоор. Сунгах бол энд шинэ огноо сонгоод хадгална уу.";
+
     private async Task SaveAsync()
     {
         await _form.ValidateAsync();
@@ -382,6 +397,7 @@
                     RepresentativeFirstName = _input.RepresentativeFirstName,
                     RepresentativeRegisterNumber = _input.RepresentativeRegisterNumber,
                 }, _agentId);
+                await PropertyRepo.SetContractEndDateAsync(Id, _input.ContractEndDate, _agentId);
                 Snackbar.Add(result.Message, Severity.Success);
                 Nav.NavigateTo("/agent");
             }

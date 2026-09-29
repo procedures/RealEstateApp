@@ -58,7 +58,7 @@
                         <MudTextField T="string" @bind-Value="_input.Title" Label="Зарын гарчиг"
                                       Variant="Variant.Outlined" Margin="Margin.Dense"
                                       Placeholder="Жишээ: Нарны хороололд 2 өрөө орон сууц"
-                                      HelperText="Сайт дээр нийтэд харагдах гарчиг. ҮХХ-ийн бүрэн хаяг нийтэд харагдахгүй." />
+                                      HelperText="@TitleHelperText" />
                     </div>
                 </div>
             </div>
@@ -311,6 +311,33 @@
         }
     }
 
+    // Гарчиг хоосон бол Байршил хэсгээс (Дүүрэг, Байршил, Хотхон) автоматаар үүсгэнэ
+    private string? BuildFallbackTitle()
+    {
+        var district = _lookups.Districts.FirstOrDefault(d => d.DistrictId == _input.DistrictId);
+
+        var parts = new List<string>();
+        if (district is not null && !string.IsNullOrWhiteSpace(district.Code)) parts.Add(district.Code);
+        if (!string.IsNullOrWhiteSpace(_input.LocationDescription)) parts.Add(_input.LocationDescription.Trim());
+        if (!string.IsNullOrWhiteSpace(_input.ComplexName)) parts.Add(_input.ComplexName.Trim());
+
+        return parts.Count > 0 ? string.Join(", ", parts) : null;
+    }
+
+    private string TitleHelperText
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(_input.Title))
+                return "Сайт дээр нийтэд харагдах гарчиг. ҮХХ-ийн бүрэн хаяг нийтэд харагдахгүй.";
+
+            var fallback = BuildFallbackTitle();
+            return fallback is null
+                ? "Хоосон орхивол Байршил хэсгээс (Дүүрэг, Байршил, Хотхон) автоматаар үүснэ."
+                : $"Хоосон орхивол автоматаар: “{fallback}”";
+        }
+    }
+
     private string PricePerSqm
     {
         get
@@ -353,9 +380,10 @@
 
             if (result.Ok)
             {
-                if (!string.IsNullOrWhiteSpace(_input.Title))
+                var titleToSave = string.IsNullOrWhiteSpace(_input.Title) ? BuildFallbackTitle() : _input.Title;
+                if (!string.IsNullOrWhiteSpace(titleToSave))
                 {
-                    await PropertyRepo.SetTitleAsync(newId, _input.Title, _agentId);
+                    await PropertyRepo.SetTitleAsync(newId, titleToSave, _agentId);
                 }
 
                 await PropertyRepo.SetOwnerInfoAsync(newId, new PropertyOwnerInfo

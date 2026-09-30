@@ -28,6 +28,13 @@
             </div>
         </div>
 
+        @if (_loadError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">
+                Өгөгдөл ачаалахад алдаа гарлаа: <code>@_loadError</code>
+            </MudAlert>
+        }
+
         @if (_loading)
         {
             <div class="rp-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
@@ -105,6 +112,11 @@
                     </table>
                 </div>
             </div>
+
+            <p class="rp-note">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+                Хамтран борлуулсан (co-agent) хаалт оролцсон хоёр агентад тус бүрд нь бүтэн дүнгээрээ (хуваахгүйгээр) орно.
+            </p>
         }
     </div>
 </div>
@@ -113,6 +125,7 @@
     private enum Metric { Property, Closure }
 
     private bool _loading = true;
+    private string? _loadError;
     private Metric _metric = Metric.Property;
 
     private List<AgentLeaderboardRow> _all = new();
@@ -132,9 +145,10 @@
         {
             _all = await DashboardRepo.GetAdminStatsAsync(20);
         }
-        catch
+        catch (Exception ex)
         {
             _all = new();
+            _loadError = ex.InnerException?.Message ?? ex.Message;
         }
         Rebuild();
         _loading = false;

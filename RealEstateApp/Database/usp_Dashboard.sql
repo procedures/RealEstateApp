@@ -20,23 +20,13 @@ BEGIN
 
     IF @Top < 1 SET @Top = 10;
 
+    /* 2026-09: Хамтран борлуулсан (CoAgentPhone) хаалтыг ХОЁР агентад
+       нь БҮТЭН дүнгээрээ тооцдог боллоо — /admin/stats/sales болон
+       /agent/stats-тэй ижил логик (dbo.Agents.Phone-оор тааруулна). */
     ;WITH PropAgg AS (
         SELECT AgentId, COUNT(*) AS PropertyCount
         FROM   dbo.Properties
         GROUP  BY AgentId
-    ),
-    CloseAgg AS (
-        SELECT SubmittedByAgentId AS AgentId, COUNT(*) AS ClosureCount
-        FROM   dbo.PropertyClosures
-        WHERE  ApprovalStatus = 2            -- зөвшөөрөгдсөн хаалт
-        GROUP  BY SubmittedByAgentId
-    ),
-    SoldAgg AS (
-        SELECT SubmittedByAgentId AS AgentId,
-               ISNULL(SUM(SoldTotalPrice), 0) AS SoldTotalAmount
-        FROM   dbo.PropertyClosures
-        WHERE  ApprovalStatus = 2
-        GROUP  BY SubmittedByAgentId
     )
     SELECT TOP (@Top)
            a.AgentId,
@@ -44,12 +34,18 @@ BEGIN
            a.FirstName,
            a.PhotoUrl,
            ISNULL(p.PropertyCount, 0)  AS PropertyCount,
-           ISNULL(c.ClosureCount, 0)   AS ClosureCount,
-           ISNULL(s.SoldTotalAmount, 0) AS SoldTotalAmount
+           (SELECT COUNT(DISTINCT pc.ClosureId)
+              FROM   dbo.PropertyClosures AS pc
+              WHERE  pc.ApprovalStatus = 2          -- зөвшөөрөгдсөн хаалт
+                     AND (pc.SubmittedByAgentId = a.AgentId
+                          OR pc.CoAgentPhone = a.Phone))       AS ClosureCount,
+           (SELECT ISNULL(SUM(pc.SoldTotalPrice), 0)
+              FROM   dbo.PropertyClosures AS pc
+              WHERE  pc.ApprovalStatus = 2
+                     AND (pc.SubmittedByAgentId = a.AgentId
+                          OR pc.CoAgentPhone = a.Phone))       AS SoldTotalAmount
     FROM   dbo.Agents AS a
            LEFT JOIN PropAgg  AS p ON p.AgentId = a.AgentId
-           LEFT JOIN CloseAgg AS c ON c.AgentId = a.AgentId
-           LEFT JOIN SoldAgg  AS s ON s.AgentId = a.AgentId
     WHERE  a.IsActive = 1
            /* Зөвхөн агентыг харуулах бол доорхыг идэвхжүүлнэ:
            AND a.Role = N'Agent' */

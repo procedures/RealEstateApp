@@ -13,7 +13,7 @@
         <div class="ps-top">
             <div>
                 <h1 class="ps-h1">Хөрөнгийн статистик</h1>
-                <p class="ps-sub">Дүүрэг/хотхойн задаргаа болон хөрөнгийн урсгалын тойм</p>
+                <p class="ps-sub">Дүүрэг/хотхоны задаргаа болон хөрөнгийн урсгалын тойм</p>
             </div>
 
             <MudSelect T="int" Value="_year" ValueChanged="OnYearChanged" Label="Жил (урсгалд)"
@@ -79,7 +79,7 @@
                         <button class="ps-tbtn @(_scope == Scope.District ? "active" : "")"
                                 @onclick="() => _scope = Scope.District">Дүүргээр</button>
                         <button class="ps-tbtn @(_scope == Scope.Complex ? "active" : "")"
-                                @onclick="() => _scope = Scope.Complex">Хотхонгоор</button>
+                                @onclick="() => _scope = Scope.Complex">Хотхоноор</button>
                     </div>
                 </div>
 

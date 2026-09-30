@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using MudBlazor.Services;
 using RealEstateApp.Components;
@@ -14,6 +15,21 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
+
+// --- Data Protection түлхүүрийг тогтмол хавтсанд хадгалах ---
+// IIS дээр app pool recycle/дахин deploy хийх бүрд Data Protection-ий
+// түлхүүр санах ойд шинээр үүсдэг тул өмнө нь гаргасан antiforgery token
+// (login маягт нээлттэй хэвээр байхад) болон auth cookie тэр даруй хүчингүй
+// болж "A valid antiforgery token was not provided" алдаа, эсвэл нэвтэрсэн
+// хэрэглэгчид гэнэт гарагддаг шалтгаан нь энэ. Түлхүүрийг deploy хийхэд
+// дарагддаггүй тогтмол хавтсанд хадгалснаар энэ давтагдахгүй.
+// Анхаар: доорх замыг сервер дээрээ бодит, IIS AppPool-ийн identity-д
+// бичих эрхтэй, deploy хийхэд УСТГАГДАХГҮЙ хавтас руу тохируулна уу
+// (жишээ нь: C:\dp-keys\RealEstateApp — deploy хийдэг wwwroot/site
+// хавтаснаас ГАДУУР байх ёстой).
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(@"C:\dp-keys\RealEstateApp"))
+    .SetApplicationName("RealEstateApp");
 
 // --- Нэвтрэлт ---
 builder.Services.AddCascadingAuthenticationState();

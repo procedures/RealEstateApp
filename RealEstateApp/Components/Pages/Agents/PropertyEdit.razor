@@ -34,6 +34,12 @@
                 Хаагдсан гэрээг засах боломжгүй.
             </MudAlert>
         }
+        else if (_reactivationPending)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-8">
+                Идэвхижүүлэх хүсэлт хүлээгдэж байгаа тул засах боломжгүй. Админы шийдвэрийг хүлээнэ үү.
+            </MudAlert>
+        }
         else
         {
             <div class="pn-top">
@@ -251,7 +257,7 @@
     private PropertyInput _input = new();
     private PropertyLocationLookups _locationLookups = new();
 
-    private bool _loading = true, _saving, _notFound, _noAccess, _closed;
+    private bool _loading = true, _saving, _notFound, _noAccess, _closed, _reactivationPending;
     private int _agentId, _status;
 
     protected override async Task OnInitializedAsync()
@@ -275,6 +281,10 @@
         else if (d.Status == 5)
         {
             _closed = true;
+        }
+        else if (d.Status == 7)
+        {
+            _reactivationPending = true;
         }
         else
         {

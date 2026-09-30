@@ -1,0 +1,191 @@
+@page "/admin/reactivations"
+@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@inject IPropertyReactivationRepository ReactivationRepo
+@inject ISnackbar Snackbar
+<PageTitle>Идэвхижүүлэх хүсэлтүүд</PageTitle>
+
+<div class="ad">
+    <SiteHeader />
+
+    <div class="ad-container">
+        <div class="ad-top">
+            <h1 class="ad-h1">Дахин идэвхижүүлэх хүсэлтүүд</h1>
+            <p class="ad-sub">
+                Шийдвэрлэхийг хүлээж буй <b>@_items.Count</b> хүсэлт
+            </p>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="ad-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="ad-empty">
+                <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Size="Size.Large" />
+                <p>Хүлээгдэж буй идэвхижүүлэх хүсэлт байхгүй байна.</p>
+            </div>
+        }
+        else
+        {
+            <div class="cl-list">
+                @foreach (var item in _items)
+                {
+                    <div class="cl-card">
+                        <!-- Толгой -->
+                        <div class="cl-head">
+                            <div>
+                                <div class="cl-title">@(item.ComplexName ?? "Хөрөнгө") №@item.PropertyId</div>
+                                <div class="cl-addr">
+                                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @item.Address
+                                </div>
+                            </div>
+                            <div class="cl-tags">
+                                <span class="cl-reason">Хаагдсан шалтгаан: @(item.ClosureReasonName ?? "-")</span>
+                            </div>
+                        </div>
+
+                        <!-- Товч мэдээлэл -->
+                        <div class="cl-facts">
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Хаагдсан огноо</span>
+                                <span class="cl-val">@(item.ClosureDate?.ToString("yyyy-MM-dd") ?? "-")</span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Зарын үнэ</span>
+                                <span class="cl-val">@Money(item.ListedPrice)</span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Дүүрэг</span>
+                                <span class="cl-val">@item.DistrictName</span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Илгээсэн агент</span>
+                                <span class="cl-val">@item.SubmittedByAgent</span>
+                            </div>
+                            <div class="cl-fact">
+                                <span class="cl-lbl">Илгээсэн огноо</span>
+                                <span class="cl-val">@item.SubmittedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                            </div>
+                            @if (item.NewContractEndDate is not null)
+                            {
+                                <div class="cl-fact">
+                                    <span class="cl-lbl">Шинэ гэрээний дуусах хугацаа</span>
+                                    <span class="cl-val hl">@item.NewContractEndDate?.ToString("yyyy-MM-dd")</span>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Шалтгаан -->
+                        <div class="cl-sec">
+                            <h4 class="cl-sh"><MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" /> Агентын бичсэн шалтгаан</h4>
+                            <p>@item.Reason</p>
+                        </div>
+
+                        <!-- Тэмдэглэл ба үйлдэл -->
+                        <div class="cl-note">
+                            <MudTextField T="string" @bind-Value="_notes[item.RequestId]"
+                                          Label="Админы тэмдэглэл (татгалзах үед заавал бөглөнө)"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </div>
+
+                        <div class="cl-actions">
+                            <a href="/property/@item.PropertyId" class="ad-btn outline" target="_blank">Хөрөнгө харах</a>
+
+                            @if (_confirm == (item.RequestId, ActApprove))
+                            {
+                                <span class="cl-confirm-txt">Идэвхижүүлэх хүсэлтийг зөвшөөрч, зарыг "Хүлээгдэж буй" болгох уу?</span>
+                                <button type="button" class="ad-btn" disabled="@_busy" @onclick="() => ApproveAsync(item.RequestId)">Тийм, зөвшөөрөх</button>
+                                <button type="button" class="ad-btn outline" disabled="@_busy" @onclick="() => _confirm = null">Болих</button>
+                            }
+                            else if (_confirm == (item.RequestId, ActReject))
+                            {
+                                <span class="cl-confirm-txt">Хүсэлтийг татгалзах уу? (зар хэвээр Хаагдсан үлдэнэ)</span>
+                                <button type="button" class="ad-btn danger" disabled="@_busy" @onclick="() => RejectAsync(item.RequestId)">Тийм, татгалзах</button>
+                                <button type="button" class="ad-btn outline" disabled="@_busy" @onclick="() => _confirm = null">Болих</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="ad-btn" disabled="@_busy" @onclick="() => _confirm = (item.RequestId, ActApprove)">Зөвшөөрөх</button>
+                                <button type="button" class="ad-btn danger" disabled="@_busy" @onclick="() => _confirm = (item.RequestId, ActReject)">Татгалзах</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private const int ActApprove = 1;
+    private const int ActReject = 2;
+
+    private bool _loading = true, _busy;
+    private int _adminId;
+    private (int Id, int Action)? _confirm;
+
+    private List<PendingReactivation> _items = new();
+    private Dictionary<int, string> _notes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _adminId = auth.User.GetAgentId();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _confirm = null;
+
+        _items = await ReactivationRepo.ListPendingAsync();
+        _notes = _items.ToDictionary(x => x.RequestId, _ => "");
+
+        _loading = false;
+    }
+
+    private string? NoteOf(int id) =>
+        _notes.TryGetValue(id, out var v) && !string.IsNullOrWhiteSpace(v) ? v.Trim() : null;
+
+    private async Task ApproveAsync(int requestId)
+    {
+        _busy = true;
+        try
+        {
+            var r = await ReactivationRepo.ApproveAsync(requestId, _adminId, NoteOf(requestId));
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    private async Task RejectAsync(int requestId)
+    {
+        if (NoteOf(requestId) is null)
+        {
+            Snackbar.Add("Татгалзах шалтгаанаа тэмдэглэлд бичнэ үү.", Severity.Warning);
+            _confirm = null;
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var r = await ReactivationRepo.RejectAsync(requestId, _adminId, NoteOf(requestId));
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok) await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error); }
+        finally { _busy = false; _confirm = null; }
+    }
+
+    private string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+}

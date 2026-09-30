@@ -104,12 +104,35 @@
                                     <h2 class="inside-h">
                                         <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" /> Дотоод мэдээлэл
                                     </h2>
-                                    @if (auth.User.GetAgentId() == _p.AgentId || auth.User.IsAdmin())
-                                    {
-                                        <a href="/agent/property/@_p.PropertyId/edit" class="inside-edit">
-                                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" /> Засах
-                                        </a>
-                                    }
+                                    <div class="inside-actions">
+                                        @if (auth.User.IsAdmin() && (_p.Status == 2 || _p.Status == 6))
+                                        {
+                                            @if (_confirmPublish)
+                                            {
+                                                <span class="inside-confirm-txt">Нийтлэх үү?</span>
+                                                <button type="button" class="inside-publish" disabled="@_publishBusy"
+                                                        @onclick="() => PublishAsync(auth.User.GetAgentId())">
+                                                    Тийм
+                                                </button>
+                                                <button type="button" class="inside-edit outline" disabled="@_publishBusy"
+                                                        @onclick="() => _confirmPublish = false">
+                                                    Болих
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="inside-publish" @onclick="() => _confirmPublish = true">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Publish" Size="Size.Small" /> Нийтлэх
+                                                </button>
+                                            }
+                                        }
+                                        @if (auth.User.GetAgentId() == _p.AgentId || auth.User.IsAdmin())
+                                        {
+                                            <a href="/agent/property/@_p.PropertyId/edit" class="inside-edit">
+                                                <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" /> Засах
+                                            </a>
+                                        }
+                                    </div>
                                 </div>
 
                                 <div class="inside-grid">
@@ -290,6 +313,37 @@
     private ViewingInput _tour = new();
     private bool _tourBusy, _tourSent;
 
+    // Админ: шууд нийтлэх (Хүлээгдэж буй/Цуцлагдсан үеэс)
+    private bool _confirmPublish, _publishBusy;
+
+    private async Task PublishAsync(int adminAgentId)
+    {
+        if (_p is null) return;
+
+        _publishBusy = true;
+        try
+        {
+            var r = await PropertyRepo.PublishAsync(_p.PropertyId, adminAgentId);
+            Snackbar.Add(r.Message, r.Ok ? Severity.Success : Severity.Error);
+            if (r.Ok)
+            {
+                // Зөвхөн төлөв өөрчлөгдсөнийг шууд харуулна (Гарчиг/Эзэмшигчийн
+                // мэдээллийг дахин дуудахгүйгээр, тэдгээрийг алдахгүйн тулд)
+                _p.Status = 3;
+                _p.PublishedAt = DateTime.Now;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _publishBusy = false;
+            _confirmPublish = false;
+        }
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
@@ -402,6 +456,7 @@
         4 => "Хаалт хүсэлт",
         5 => "Хаагдсан",
         6 => "Цуцлагдсан",
+        7 => "Идэвхижүүлэх хүсэлт",
         _ => "-"
     };
 
@@ -412,6 +467,7 @@
         4 => "#3182ce",
         5 => "#718096",
         6 => "#e53e3e",
+        7 => "#805ad5",
         _ => "#a0aec0"
     };
 }

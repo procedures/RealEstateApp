@@ -1,0 +1,224 @@
+@page "/agent/property/{Id:int}/reactivate"
+@attribute [Authorize]
+@using MudBlazor
+@using RealEstateApp.Models
+@using RealEstateApp.Data.Repositories
+@using RealEstateApp.Services
+@inject IPropertyRepository PropertyRepo
+@inject IClosureRepository ClosureRepo
+@inject IPropertyReactivationRepository ReactivationRepo
+@inject ILookupRepository LookupRepo
+@inject ITelegramNotifier Telegram
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+<PageTitle>Дахин идэвхижүүлэх хүсэлт</PageTitle>
+
+<div class="pn">
+    <SiteHeader />
+
+    <div class="pn-container">
+        @if (_loading)
+        {
+            <div class="pn-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_notFound)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-8">Ийм хөрөнгө олдсонгүй.</MudAlert>
+        }
+        else if (_noAccess)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-8">
+                Энэ зарын хувьд идэвхижүүлэх хүсэлт илгээх эрхгүй байна.
+            </MudAlert>
+        }
+        else if (_notClosed)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-8">
+                Энэ зар одоогоор хаагдаагүй тул идэвхижүүлэх хүсэлт илгээх шаардлагагүй.
+                <a href="/agent">Буцах</a>
+            </MudAlert>
+        }
+        else if (_alreadyPending)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-8">
+                Энэ зарт хүлээгдэж буй идэвхижүүлэх хүсэлт аль хэдийн байна. Админы шийдвэрийг хүлээнэ үү.
+                <a href="/agent">Буцах</a>
+            </MudAlert>
+        }
+        else if (_isSoldClosure)
+        {
+            <div class="pn-top">
+                <h1 class="pn-h1">Дахин идэвхижүүлэх хүсэлт</h1>
+                <p class="pn-sub">@_p!.Address &nbsp;·&nbsp; @Money(_p.Price) &nbsp;·&nbsp; @_p.AreaSize.ToString("0.#") м²</p>
+            </div>
+            <MudAlert Severity="Severity.Info" Class="mb-4">
+                Энэ зар <b>@_closureReasonName</b> шалтгаанаар (борлуулалт) хаагдсан тул дахин идэвхижүүлэх
+                шаардлагагүй.
+            </MudAlert>
+            <a href="/agent" class="pn-note" style="text-decoration:none;width:fit-content;display:inline-flex;">
+                <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" /> Миний зарууд руу буцах
+            </a>
+        }
+        else
+        {
+            <div class="pn-top">
+                <h1 class="pn-h1">Дахин идэвхижүүлэх хүсэлт</h1>
+                <p class="pn-sub">@_p!.Address &nbsp;·&nbsp; @Money(_p.Price) &nbsp;·&nbsp; @_p.AreaSize.ToString("0.#") м²</p>
+            </div>
+
+            <div class="pn-note mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" />
+                Хаагдсан шалтгаан: <b>@_closureReasonName</b>
+                @(_closureDate is not null ? $" ({_closureDate:yyyy-MM-dd})" : "")
+                — Админ зөвшөөрвөл зар "Хүлээгдэж буй" төлөвт орж, дараа нь дахин нийтлэгдэнэ.
+            </div>
+
+            <MudForm @ref="_form" Model="_input">
+                <div class="pn-card">
+                    <h3 class="pn-ch"><span class="pn-num">1</span> Хүсэлтийн мэдээлэл</h3>
+                    <div class="pn-grid">
+                        <MudTextField T="string" @bind-Value="_input.Reason" Label="Шалтгаан / тайлбар *"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Lines="3" Class="pn-full"
+                                      Required="true" RequiredError="Шалтгаанаа бичнэ үү"
+                                      Placeholder="Жишээ нь: Эзэмшигч түр хугацаанд зарахаа больсон, дараа дахин зарна." />
+
+                        <MudDatePicker @bind-Date="_input.NewContractEndDate"
+                                       Label="Гэрээний шинэ дуусах хугацаа (сунгах бол)"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </div>
+                    <p class="pn-hint">
+                        Гэрээний хугацаа дуусаад сунгаж байгаа бол дээрх талбарт шинэ огноог оруулна уу — админ
+                        зөвшөөрөхөд автоматаар хадгалагдана. Шаардлагагүй бол хоосон орхиж болно.
+                    </p>
+                </div>
+
+                <div class="pn-actions">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                               OnClick="@(() => Nav.NavigateTo("/agent"))" Disabled="_saving">
+                        Цуцлах
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Send"
+                               OnClick="SubmitAsync" Disabled="_saving">
+                        @(_saving ? "Илгээж байна…" : "Хүсэлт илгээх")
+                    </MudButton>
+                </div>
+            </MudForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private MudForm _form = default!;
+    private LookupData _lookups = new();
+    private ReactivationInput _input = new();
+    private PropertyDetailDto? _p;
+
+    private bool _loading = true, _saving, _notFound, _noAccess, _notClosed, _alreadyPending, _isSoldClosure;
+    private int _agentId;
+    private string _agentName = "";
+    private string? _closureReasonName;
+    private DateTime? _closureDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        _agentId = auth.User.GetAgentId();
+        _agentName = auth.User.GetFullName();
+        var isAdmin = auth.User.IsAdmin();
+
+        _lookups = await LookupRepo.GetAllAsync();
+        _p = await PropertyRepo.GetByIdAsync(Id);
+
+        if (_p is null)
+        {
+            _notFound = true;
+        }
+        else if (_p.AgentId != _agentId && !isAdmin)
+        {
+            _noAccess = true;
+        }
+        else if (_p.Status == 7)
+        {
+            _alreadyPending = true;
+        }
+        else if (_p.Status != 5)
+        {
+            _notClosed = true;
+        }
+        else
+        {
+            var closures = await ClosureRepo.GetByPropertyAsync(Id);
+            var lastApproved = closures
+                .Where(c => c.ApprovalStatus == 2)
+                .OrderByDescending(c => c.ClosureDate)
+                .FirstOrDefault();
+
+            if (lastApproved is not null)
+            {
+                _closureReasonName = lastApproved.ClosureReasonName;
+                _closureDate = lastApproved.ClosureDate;
+
+                var reason = _lookups.ClosureReasons.FirstOrDefault(r => r.ClosureReasonId == lastApproved.ClosureReasonId);
+                _isSoldClosure = reason?.IsSold == true;
+            }
+        }
+
+        _loading = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Шалтгаанаа бичнэ үү.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var result = await ReactivationRepo.RequestAsync(Id, _input, _agentId);
+
+            if (result.Ok)
+            {
+                var propName = _p?.ComplexName ?? _p?.Address ?? $"№{Id}";
+                var msg =
+                    $"🔄 <b>Дахин идэвхижүүлэх хүсэлт</b>\n\n" +
+                    $"<b>Хөрөнгө:</b> {Esc(propName)}\n" +
+                    $"<b>Хаагдсан шалтгаан:</b> {Esc(_closureReasonName)}\n" +
+                    $"<b>Шалтгаан:</b> {Esc(_input.Reason)}\n" +
+                    (_input.NewContractEndDate is not null
+                        ? $"<b>Шинэ гэрээний дуусах хугацаа:</b> {_input.NewContractEndDate:yyyy-MM-dd}\n" : "") +
+                    $"<b>Илгээсэн агент:</b> {Esc(_agentName)}\n\n" +
+                    $"⏳ Админы баталгаажуулалт хүлээж байна.";
+
+                _ = Telegram.SendAsync(msg);
+
+                Snackbar.Add(result.Message, Severity.Success);
+                Nav.NavigateTo("/agent");
+            }
+            else
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Алдаа гарлаа: {ex.Message}", Severity.Error);
+        }
+        finally { _saving = false; }
+    }
+
+    private string Money(decimal v) =>
+        v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture) + "₮";
+
+    private static string Esc(string? s) =>
+        string.IsNullOrEmpty(s) ? "" :
+        s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+}

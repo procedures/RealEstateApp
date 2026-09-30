@@ -262,13 +262,19 @@
                                     {
                                         <a href="/property/@it.PropertyId" class="ag-btn outline">Харах</a>
 
-                                        @if (it.Status != 5)
+                                        @if (it.Status != 5 && it.Status != 7)
                                         {
                                             <a href="/agent/property/@it.PropertyId/edit" class="ag-btn outline">Засах</a>
                                         }
                                         @if (it.Status == 3)
                                         {
                                             <a href="/agent/property/@it.PropertyId/close" class="ag-btn">Хаалт хийх</a>
+                                        }
+                                        @if (it.Status == 5)
+                                        {
+                                            <a href="/agent/property/@it.PropertyId/reactivate" class="ag-btn">
+                                                Идэвхижүүлэх хүсэлт
+                                            </a>
                                         }
                                         @if (it.Status != 5)
                                         {
@@ -298,6 +304,7 @@
         (3, "Нийтлэгдсэн"),
         (4, "Хаалт хүсэлт"),
         (5, "Хаагдсан"),
+        (7, "Идэвхижүүлэх хүсэлт"),
         (6, "Цуцлагдсан"),
     };
 
@@ -457,6 +464,7 @@
         4 => "Хаалт хүсэлт",
         5 => "Хаагдсан",
         6 => "Цуцлагдсан",
+        7 => "Идэвхижүүлэх хүсэлт",
         _ => "-"
     };
 
@@ -467,6 +475,7 @@
         4 => "#3182ce",
         5 => "#718096",
         6 => "#e53e3e",
+        7 => "#805ad5",
         _ => "#a0aec0"
     };
 }

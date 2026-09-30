@@ -273,7 +273,7 @@
                                                 Нийтлэлээс буцаах
                                             </button>
                                         }
-                                        @if (it.Status != 5 && it.Status != 6)
+                                        @if (it.Status != 5 && it.Status != 6 && it.Status != 7)
                                         {
                                             <button class="ad-btn danger" disabled="@_busy"
                                                     @onclick="() => _confirm = (it.PropertyId, ActReject)">
@@ -305,6 +305,7 @@
         (3, "Нийтлэгдсэн"),
         (4, "Хаалт хүсэлт"),
         (5, "Хаагдсан"),
+        (7, "Идэвхижүүлэх хүсэлт"),
         (6, "Цуцлагдсан"),
         (null, "Бүгд"),
     };
@@ -467,6 +468,7 @@
         4 => "Хаалт хүсэлт",
         5 => "Хаагдсан",
         6 => "Цуцлагдсан",
+        7 => "Идэвхижүүлэх хүсэлт",
         _ => "-"
     };
     private string StatusColor(int s) => s switch
@@ -476,6 +478,7 @@
         4 => "#3182ce",
         5 => "#718096",
         6 => "#e53e3e",
+        7 => "#805ad5",
         _ => "#a0aec0"
     };
 }

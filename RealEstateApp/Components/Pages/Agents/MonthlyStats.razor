@@ -44,6 +44,10 @@
             <div class="ms-empty">
                 <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Large" />
                 <p>Статистик ачаалахад алдаа гарлаа.</p>
+                @if (!string.IsNullOrEmpty(_loadError))
+                {
+                    <p class="ms-error-detail">@_loadError</p>
+                }
             </div>
         }
         else
@@ -93,6 +97,7 @@
     private int _year = DateTime.Today.Year;
     private int _month = DateTime.Today.Month;
     private AgentMonthlyStats? _stats;
+    private string? _loadError;
 
     private static readonly string[] MonthNames =
     {
@@ -133,13 +138,15 @@
     private async Task LoadAsync()
     {
         _loading = true;
+        _loadError = null;
         try
         {
             _stats = await DashboardRepo.GetAgentMonthlyStatsAsync(_agentId, _year, _month);
         }
-        catch
+        catch (Exception ex)
         {
             _stats = null;
+            _loadError = ex.InnerException?.Message ?? ex.Message;
         }
         _loading = false;
     }

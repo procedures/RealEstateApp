@@ -35,6 +35,13 @@
             </div>
         </div>
 
+        @if (_loadError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">
+                Өгөгдөл ачаалахад алдаа гарлаа: <code>@_loadError</code>
+            </MudAlert>
+        }
+
         @if (_loading)
         {
             <div class="ss-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
@@ -117,6 +124,7 @@
 
 @code {
     private bool _loading = true;
+    private string? _loadError;
     private int _year = DateTime.Today.Year;
     private int _month = DateTime.Today.Month;
 
@@ -165,13 +173,15 @@
     private async Task LoadAsync()
     {
         _loading = true;
+        _loadError = null;
         try
         {
             _trend = await DashboardRepo.GetAdminSalesTrendAsync(_year);
         }
-        catch
+        catch (Exception ex)
         {
             _trend = new();
+            _loadError = ex.InnerException?.Message ?? ex.Message;
         }
         RebuildChart();
 
@@ -186,9 +196,10 @@
         {
             _leaderboard = await DashboardRepo.GetAdminMonthlyLeaderboardAsync(_year, _month);
         }
-        catch
+        catch (Exception ex)
         {
             _leaderboard = new();
+            _loadError ??= ex.InnerException?.Message ?? ex.Message;
         }
         if (setLoading) _loading = false;
     }

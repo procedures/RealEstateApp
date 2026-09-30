@@ -25,6 +25,13 @@
             </MudSelect>
         </div>
 
+        @if (_loadError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">
+                Өгөгдөл ачаалахад алдаа гарлаа: <code>@_loadError</code>
+            </MudAlert>
+        }
+
         @if (_loading)
         {
             <div class="ps-center"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
@@ -127,6 +134,7 @@
     private enum Scope { District, Complex }
 
     private bool _loading = true;
+    private string? _loadError;
     private int _year = DateTime.Today.Year;
     private Scope _scope = Scope.District;
 
@@ -161,13 +169,15 @@
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
+        _loadError = null;
         try
         {
             _breakdown = await DashboardRepo.GetAdminLocationBreakdownAsync(15);
         }
-        catch
+        catch (Exception ex)
         {
             _breakdown = null;
+            _loadError = ex.InnerException?.Message ?? ex.Message;
         }
         await LoadFunnelAsync(setLoading: false);
         _loading = false;
@@ -186,9 +196,10 @@
         {
             _funnel = await DashboardRepo.GetAdminPropertyFunnelAsync(_year);
         }
-        catch
+        catch (Exception ex)
         {
             _funnel = null;
+            _loadError ??= ex.InnerException?.Message ?? ex.Message;
         }
         RebuildFunnelChart();
         if (setLoading) _loading = false;
